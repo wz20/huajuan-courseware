@@ -1,0 +1,4 @@
+interface:
+  display_name: "可交互课件"
+  short_description: "为老师制作可直接在本地打开的互动实验和教学课件"
+  default_prompt: "用 $huajuan-courseware 制作一节可交互课件。"
