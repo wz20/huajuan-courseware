@@ -13,11 +13,12 @@ assets = ROOT / "assets"
 def script(source):
     return "<script>" + source.replace("</script", "<\\/script") + "</script>"
 
+history = [script((assets / "lesson-history.js").read_text())] if config.get("history") is True else []
 if config.get("layout") == "workbench":
     parts = [(args.lesson / "lab.html").read_text(),
              "<!-- " + (assets / "vendor/THREE-LICENSE.txt").read_text() + " -->",
              script((assets / "vendor/three.js").read_text()),
-             script((args.lesson / "bench.js").read_text()),
+             *history, script((args.lesson / "bench.js").read_text()),
              script((args.lesson / "lab.js").read_text()), "</body></html>"]
 else:
     for field in ("title", "question", "control", "unit", "challenge", "limit"):
@@ -29,7 +30,7 @@ else:
     if config.get("three"):
         parts.append("<!-- " + (assets / "vendor/THREE-LICENSE.txt").read_text() + " -->")
         parts.append(script((assets / "vendor/three.js").read_text()))
-    parts.extend([script("const config = " + json.dumps(config, ensure_ascii=False)),
+    parts.extend([*history, script("const config = " + json.dumps(config, ensure_ascii=False)),
                   script((args.lesson / "scene.js").read_text()), script((assets / "runtime.js").read_text()),
                   "</body></html>"])
 args.output.parent.mkdir(parents=True, exist_ok=True)

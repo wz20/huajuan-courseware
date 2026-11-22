@@ -12,6 +12,10 @@
 | 生物 | [叶肉细胞三维图谱](https://wz20.github.io/huajuan-courseware/biology.html) | 从整颗叶肉细胞点进叶绿体，继续放大到基粒与类囊体。 | [源码](lessons/biology/) |
 | 化学 | [氢气与氧气生成水](https://wz20.github.io/huajuan-courseware/chemistry.html) | 点选一个氧原子，拖动反应进度，看看它最后进入哪一颗水分子。 | [源码](lessons/chemistry/) |
 
+## 这节课让学生动什么
+
+先看学生需要观察的差别。逐步比较请求路线、把实体输入和程序输出对上、区分远端指令和设备回报、按步骤使用工具、在实物和原理图之间量测、暂停并检查一个移动对象，各有对应的交互做法。每种做法附原课观察、新题实现和一组能当堂验证的操作。[六种交互的制作方法](references/interaction-recipes.md)
+
 ## 做自己的课件
 
 以 Codex 为例，在终端把仓库放进自己的 Skills 目录。
