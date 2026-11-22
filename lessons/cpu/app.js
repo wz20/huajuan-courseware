@@ -58,8 +58,8 @@
     if (webglFailed) return false;
 
     v3 = Studio3D.createViewport(container, {
-      cameraPos: [5.4, 4.9, 5.6],
-      target: [0.35, 0.35, 0.2],
+      cameraPos: [5.4, 4.95, 5.65],
+      target: [0.35, 0.32, 0.2],
       onSelectPart: onPick,
       onFallback: () => {
         webglFailed = true;
@@ -67,115 +67,204 @@
     });
     if (!v3) return false;
 
-    const { scene, createToonMesh, registerPickable } = v3;
+    const { scene, registerPickable, prefabs, primitives, textures } = v3;
 
-    // 1. PCB Motherboard Base & LGA CPU Socket Substrate
-    const pcb = createToonMesh(new THREE.BoxGeometry(7.2, 0.14, 4.8), 0x1e4337, { outlineColor: 0x0d1f18 });
-    pcb.position.set(0.55, -0.07, 0.25);
+    // ==================== LAYER 1: MOTHERBOARD & VRM / CLOCK PERIPHERALS ====================
+    const moboTex = textures.microGrid({
+      bg: '#102820',
+      majorColor: 'rgba(255,255,255,0.08)',
+      minorColor: 'rgba(255,255,255,0.03)',
+      style: 'pcb'
+    });
+    const pcb = primitives.chamferBox(7.4, 0.14, 5.0, {
+      chamfer: 0.24,
+      color: 0x132e25,
+      topTexture: moboTex,
+      silhouetteThickness: 0.024
+    });
+    pcb.position.set(0.55, -0.08, 0.25);
     scene.add(pcb);
 
-    const substrate = createToonMesh(new THREE.BoxGeometry(4.2, 0.16, 3.4), 0x2c6e58, { outlineColor: 0x12261e });
-    substrate.position.set(-0.25, 0.08, 0.12);
+    // Motherboard VRM electrolytic capacitors & 16MHz Clock Crystal Oscillator
+    for (const [cx, cz] of [[-2.75, -1.65], [-2.75, -1.15], [-2.75, -0.65]]) {
+      const ecap = prefabs.passiveComponent({ type: 'electrolytic-cap', radius: 0.13, h: 0.32, color: 0x1e3a8a });
+      ecap.position.set(cx, 0.0, cz);
+      scene.add(ecap);
+    }
+    const clkCrystal = prefabs.passiveComponent({ type: 'crystal', label: '16.0MHz' });
+    clkCrystal.position.set(-2.72, 0.01, 0.15);
+    clkCrystal.rotation.y = Math.PI / 2;
+    scene.add(clkCrystal);
+
+    // ==================== LAYER 2: CPU LGA PACKAGE SUBSTRATE & SMD CAPACITOR RING ====================
+    const substrate = prefabs.circuitBoard({
+      w: 4.45,
+      h: 0.16,
+      d: 3.55,
+      color: 0x1b5e43,
+      rimColor: 0xd4a13e,
+      chamfer: 0.2,
+      mountingHoles: true,
+      goldPadRing: true,
+      pin1: true
+    });
+    substrate.position.set(-0.25, 0.07, 0.12);
     scene.add(substrate);
 
-    // Gold perimeter LGA pins
-    const pinGeo = new THREE.BoxGeometry(0.1, 0.08, 0.08);
-    for (let i = -8; i <= 8; i++) {
-      for (const z of [-1.72, 1.72]) {
-        const p = createToonMesh(pinGeo, 0xd4a446, { outline: false, metalness: 0.45 });
-        p.position.set(-0.25 + i * 0.22, 0.04, 0.12 + z);
-        scene.add(p);
-      }
+    // Perimeter SMD decoupling capacitors around the CPU substrate
+    const smdCoords = [
+      [-1.8, -1.45, 0], [-1.3, -1.45, 0], [0.8, -1.45, 0], [1.3, -1.45, 0],
+      [-2.18, -0.4, Math.PI / 2], [-2.18, 0.5, Math.PI / 2],
+      [1.68, -0.4, Math.PI / 2], [1.68, 0.5, Math.PI / 2]
+    ];
+    for (const [sx, sz, rotY] of smdCoords) {
+      const smd = prefabs.passiveComponent({ type: 'smd-cap' });
+      smd.position.set(sx, 0.18, sz);
+      smd.rotation.y = rotY;
+      scene.add(smd);
     }
 
-    // 2. Five Interactive Silicon Functional Blocks
+    // ==================== LAYER 3: SILICON DIE INTERPOSER & 5 MICROARCHITECTURE UNITS ====================
+    const dieTex = textures.microGrid({
+      bg: '#16161d',
+      majorColor: 'rgba(255,255,255,0.16)',
+      minorColor: 'rgba(255,255,255,0.06)',
+      accentColor: '#d97706',
+      style: 'silicon'
+    });
+    const siliconDie = primitives.chamferBox(3.68, 0.07, 2.86, {
+      chamfer: 0.12,
+      color: 0x18181f,
+      metalness: 0.28,
+      roughness: 0.35,
+      topTexture: dieTex,
+      silhouetteThickness: 0.018
+    });
+    siliconDie.position.set(-0.25, 0.18, 0.12);
+    scene.add(siliconDie);
+
+    // Internal on-die gold micro-bus traces with vias
+    const onDieBuses = [
+      [[-1.35, -0.85], [-0.45, -0.85], [0.85, -0.85]],
+      [[-1.35, -0.45], [-1.35, 0.25], [-0.35, 0.25]],
+      [[0.95, -0.42], [0.95, 0.28], [0.25, 0.28]],
+      [[-0.2, 0.55], [-0.2, 1.25], [-0.85, 1.25]]
+    ];
+    for (const pathPts of onDieBuses) {
+      scene.add(primitives.tracePath(pathPts, { y: 0.225, width: 0.055, height: 0.02, color: 0xeab308 }));
+    }
+
     blockMeshes = {};
-    const makeBlock = (id, w, h, d, color, pos, extras) => {
-      const grp = new THREE.Group();
+    const addUnit = (id, grp, pos, baseHex) => {
       grp.position.set(...pos);
-      const base = createToonMesh(new THREE.BoxGeometry(w, h, d), color, { outlineColor: 0x18181b });
-      grp.add(base);
-      extras?.(grp);
       scene.add(grp);
       registerPickable(grp, id);
-      blockMeshes[id] = { grp, base, baseHex: color };
+      blockMeshes[id] = { grp, baseHex };
       return grp;
     };
 
-    // CU block + decoder ridges + clock quartz oscillator
-    makeBlock('cu', 1.45, 0.42, 1.15, 0xe8692b, [-1.5, 0.37, -0.95], (g) => {
-      for (let i = -2; i <= 2; i++) {
-        const bar = createToonMesh(new THREE.BoxGeometry(1.1, 0.08, 0.1), 0xfbd38d, { outlineColor: 0x18181b });
-        bar.position.set(0, 0.25, i * 0.2);
-        g.add(bar);
-      }
+    // 1. Control Unit (CU) IC Package with microcode decoder bars & 4-side gull-wing pins
+    const cuGrp = prefabs.icPackage({
+      w: 1.42,
+      h: 0.36,
+      d: 1.12,
+      color: 0xe8692b,
+      capColor: 0x1c1917,
+      title: 'CU 控制单元',
+      subtitle: 'DECODER · PC · IR',
+      tag: 'CTRL',
+      accent: '#fbbf24',
+      ridges: 4,
+      pinsPerSide: 5,
+      pinSides: 4
     });
+    addUnit('cu', cuGrp, [-1.48, 0.40, -0.92], 0xe8692b);
 
-    // ALU twin execution wedges / core block
-    makeBlock('alu', 1.4, 0.48, 1.15, 0x0f766e, [1.05, 0.4, -0.9], (g) => {
-      const c1 = createToonMesh(new THREE.BoxGeometry(0.55, 0.14, 0.88), 0x5eead4, { outlineColor: 0x18181b });
-      c1.position.set(-0.34, 0.3, 0);
-      const c2 = createToonMesh(new THREE.BoxGeometry(0.55, 0.14, 0.88), 0x5eead4, { outlineColor: 0x18181b });
-      c2.position.set(0.34, 0.3, 0);
-      g.add(c1, c2);
+    // 2. Arithmetic Logic Unit (ALU) V-Notched Chevron with Dual Input Ports & Z/N/C Flag LEDs
+    const aluGrp = prefabs.aluUnit({
+      w: 1.46,
+      h: 0.42,
+      d: 1.18,
+      color: 0x0f766e,
+      accentColor: 0x5eead4,
+      title: 'ALU 运算核',
+      subtitle: 'ADD · SUB · FLAGS'
     });
+    addUnit('alu', aluGrp, [1.04, 0.42, -0.88], 0x0f766e);
 
-    // Register File bank rows
-    makeBlock('regs', 1.65, 0.34, 0.92, 0x215d3f, [-0.15, 0.33, 0.35], (g) => {
-      for (let i = -1; i <= 1; i++) {
-        const slot = createToonMesh(new THREE.BoxGeometry(0.42, 0.1, 0.66), 0x86efac, { outlineColor: 0x18181b });
-        slot.position.set(i * 0.5, 0.22, 0);
-        g.add(slot);
-      }
+    // 3. Articulated Register File Bank (PC / IR / R0 / R1 / R2 live 3D cartridges)
+    const regsGrp = prefabs.registerBank({
+      w: 1.72,
+      h: 0.32,
+      d: 0.94,
+      color: 0x1b4d36,
+      slots: [
+        { id: 'PC', value: '0x00', sub: 'ADDR' },
+        { id: 'IR', value: '1504', sub: 'INST' },
+        { id: 'R0', value: '0', sub: 'ZERO' },
+        { id: 'R1', value: '3', sub: 'ACC' },
+        { id: 'R2', value: '0', sub: 'GPR' }
+      ]
     });
+    addUnit('regs', regsGrp, [-0.12, 0.37, 0.35], 0x215d3f);
 
-    // On-die L1/L2 Cache SRAM banks
-    makeBlock('cache', 2.05, 0.28, 0.82, 0x6d28d9, [-0.95, 0.3, 1.32], (g) => {
-      for (let i = 0; i < 4; i++) {
-        const bank = createToonMesh(new THREE.BoxGeometry(0.42, 0.08, 0.62), 0xc4b5fd, { outlineColor: 0x18181b });
-        bank.position.set(-0.72 + i * 0.48, 0.18, 0);
-        g.add(bank);
-      }
+    // 4. L1 Cache 6T-SRAM 4-Set Matrix
+    const cacheGrp = prefabs.sramMatrix({
+      w: 2.06,
+      h: 0.28,
+      d: 0.84,
+      color: 0x5b21b6,
+      sets: ['SET 0', 'SET 1', 'SET 2', 'SET 3'],
+      title: 'L1 CACHE · 6T SRAM'
     });
+    addUnit('cache', cacheGrp, [-0.95, 0.35, 1.32], 0x6d28d9);
 
-    // External System Bus Traces + DRAM Memory Stick
-    makeBlock('bus', 1.2, 0.65, 2.75, 0x2563eb, [2.75, 0.32, 0.35], (g) => {
-      const slot = createToonMesh(new THREE.BoxGeometry(0.5, 0.22, 3.0), 0x1e293b, { outlineColor: 0x090d16 });
-      slot.position.set(0, -0.22, 0);
-      g.add(slot);
-      for (let k = -3; k <= 3; k++) {
-        const ic = createToonMesh(new THREE.BoxGeometry(0.18, 0.36, 0.28), 0x0f172a, { outline: false });
-        ic.position.set(-0.56, 0.04, k * 0.36);
-        g.add(ic);
-      }
+    // 5. External System Bus & DIMM DRAM Stick in Latching Motherboard Slot
+    const busGrp = prefabs.dimmStick({
+      w: 1.06,
+      h: 0.72,
+      d: 2.85,
+      boardColor: 0x1d4ed8,
+      chipCount: 4,
+      title: 'DDR DRAM · MAIN MEM'
     });
+    addUnit('bus', busGrp, [2.75, 0.28, 0.30], 0x2563eb);
 
-    // Copper PCB trace buses visually linking CPU socket to DRAM & on-die units
-    for (let z = -0.35; z <= 1.05; z += 0.35) {
-      const trace = createToonMesh(new THREE.BoxGeometry(1.7, 0.03, 0.09), 0xd9a441, { outline: false, metalness: 0.5 });
-      trace.position.set(1.5, 0.02, z);
-      scene.add(trace);
+    // Motherboard routed copper trace buses + 3D arched high-speed bus conduits (CPU <-> DRAM)
+    for (let i = -2; i <= 2; i++) {
+      const z0 = 0.25 + i * 0.32;
+      const z1 = 0.25 + i * 0.42;
+      scene.add(primitives.tracePath([
+        [1.55, z0],
+        [1.92, z0],
+        [2.12, z1],
+        [2.32, z1]
+      ], { y: 0.015, width: 0.075, height: 0.025, color: 0xd9a441 }));
     }
-    const dieBusLines = [
-      [-1.0, 0.22, -0.75, 0.7, 0.04, 0.08],
-      [-0.85, 0.22, -0.25, 0.08, 0.04, 1.0],
-      [0.65, 0.22, -0.25, 0.08, 0.04, 1.0],
-      [-0.5, 0.22, 0.85, 0.9, 0.04, 0.08]
-    ];
-    for (const [bx, by, bz, bw, bh, bd] of dieBusLines) {
-      const b = createToonMesh(new THREE.BoxGeometry(bw, bh, bd), 0xc79238, { outline: false, metalness: 0.45 });
-      b.position.set(bx, by, bz);
-      scene.add(b);
-    }
+    const addrArc = primitives.curvedTube([
+      [0.72, 0.34, 0.55],
+      [1.65, 0.78, 0.65],
+      [2.32, 0.42, 0.65]
+    ], { radius: 0.036, color: 0xf59e0b });
+    const dataArc = primitives.curvedTube([
+      [0.72, 0.34, 0.95],
+      [1.65, 0.86, 1.12],
+      [2.32, 0.42, 1.12]
+    ], { radius: 0.04, color: 0x38bdf8 });
+    scene.add(addrArc, dataArc);
 
-    // Translucent IHS Heat Spreader Cover (can lift cleanly without obscuring die)
-    ihsMesh = createToonMesh(new THREE.BoxGeometry(3.85, 0.12, 3.05), 0xcbd5e1, {
-      outlineColor: 0x334155,
-      metalness: 0.35,
-      roughness: 0.25,
-      opacity: state.ihsOpen ? 0.18 : 0.86
+    // ==================== LAYER 4: STEPPED OCTAGONAL METALLIC IHS HEAT SPREADER ====================
+    ihsMesh = prefabs.steppedCover({
+      w: 3.92,
+      h: 0.18,
+      d: 3.12,
+      color: 0xcbd5e1,
+      title: 'HUAJUAN CORE-16',
+      subtitle: '16-BIT EDUCATIONAL MICROARCHITECTURE',
+      tag: 'IHS',
+      opacity: state.ihsOpen ? 0.16 : 0.94
     });
-    ihsMesh.position.set(-0.25, state.ihsOpen ? 1.55 : 0.72, 0.12);
+    ihsMesh.position.set(-0.25, state.ihsOpen ? 1.62 : 0.74, 0.12);
     scene.add(ihsMesh);
 
     // Bind 3D leader callouts
@@ -193,18 +282,39 @@
     return true;
   }
 
-  function highlightPart3D(partId, wireNames = []) {
+  function highlightPart3D(partId, wireNames = [], snapshot = null) {
     if (!v3) return;
     v3.setActivePart(partId);
     for (const [id, item] of Object.entries(blockMeshes)) {
       const isHot = id === partId;
-      item.base.material.emissive.setHex(isHot ? item.baseHex : 0x000000);
-      item.base.material.emissiveIntensity = isHot ? 0.45 : 0;
-      item.grp.scale.setScalar(isHot ? 1.06 : 1.0);
+      Studio3D.setGroupHighlight(item.grp, isHot, {
+        colorHex: item.baseHex,
+        intensity: 0.38,
+        scale: 1.05
+      });
     }
-    if (ihsMesh) {
-      ihsMesh.position.y = state.ihsOpen ? 1.55 : 0.72;
-      ihsMesh.material.opacity = state.ihsOpen ? 0.18 : 0.86;
+    if (ihsMesh && ihsMesh.userData?.setOpen) {
+      ihsMesh.userData.setOpen(state.ihsOpen, { openY: 1.62, closedY: 0.74, openOpacity: 0.16, closedOpacity: 0.94 });
+    }
+    if (snapshot) {
+      blockMeshes.alu?.grp?.userData?.setFlags?.(snapshot.flags);
+      const hotRegs = partId === 'regs' ? ['R1', 'R2'] : partId === 'cu' ? ['PC', 'IR'] : [];
+      blockMeshes.regs?.grp?.userData?.updateRegisters?.({
+        PC: snapshot.pc,
+        IR: (snapshot.irHex || '').replace(/^0x/, ''),
+        R0: snapshot.regs.R0,
+        R1: snapshot.regs.R1,
+        R2: snapshot.regs.R2
+      }, hotRegs);
+    } else {
+      blockMeshes.alu?.grp?.userData?.setFlags?.({ Z: 0, N: 0, C: 0 });
+      blockMeshes.regs?.grp?.userData?.updateRegisters?.({
+        PC: '0x00',
+        IR: '1504',
+        R0: 0,
+        R1: state.progParams.mem04,
+        R2: 0
+      }, partId === 'regs' ? ['R1'] : []);
     }
     const pulses = wireNames.map(w => ({ points: WIRE_ROUTES[w], color: 0xfbbf24, count: 2, speed: 0.9 })).filter(p => p.points);
     v3.setSignalPulses(pulses);
@@ -418,7 +528,7 @@
         });
       }
       if (!v3) render2DFallbackStage(vp, cur.activePart, cur.stage);
-      else highlightPart3D(cur.activePart, cur.activeWires);
+      else highlightPart3D(cur.activePart, cur.activeWires, cur.snapshot);
       bindPiPClicks(cur.activePart, cur.ctrlSignals);
     } else if (state.cycleStageView === 'seq') {
       app.setPiP({ visible: false });

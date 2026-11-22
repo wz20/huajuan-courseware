@@ -85,6 +85,49 @@ if (typeof module !== 'undefined' && module.exports) {
 """
     (target / "model.js").write_text(model_js, encoding="utf-8")
 
+    stage_render_js = """    vp.innerHTML = `<svg viewBox="0 0 640 320" style="width:100%;height:100%">
+      ${StudioSVG.isoBox({ x: 180, y: 150, label: '输入', sub: 'param=' + sim.param, fillTop: '#fcd4ad', fillLeft: '#eab382', fillRight: '#d39763', active: sim.stepIndex === 0 })}
+      ${StudioSVG.flowPath({ points: [[224, 150], [320, 150]], packetT: sim.stepIndex / 2, packetLabel: String(sim.current.metric) })}
+      ${StudioSVG.isoBox({ x: 380, y: 150, label: sim.current.title, sub: 'out=' + sim.current.metric, fillTop: '#a9c5e8', fillLeft: '#84a6d2', fillRight: '#6288b9', active: sim.stepIndex >= 1 })}
+    </svg>`;"""
+    if use_three:
+        stage_render_js = """    if (typeof Studio3D !== 'undefined' && Studio3D.hasThree()) {
+      if (!window._lessonV3) {
+        vp.innerHTML = '';
+        const v3 = Studio3D.createViewport(vp, {
+          cameraPos: [5.6, 4.8, 5.8],
+          target: [0, 0.25, 0],
+          onFallback: () => { window._lessonV3 = null; }
+        });
+        if (v3) {
+          const { prefabs, primitives } = Studio3D;
+          const board = prefabs.circuitBoard({ w: 4.0, h: 0.16, d: 2.8, title: config.title, subtitle: 'LAB-V2' });
+          const u1 = prefabs.icPackage({ w: 1.2, h: 0.34, d: 0.95, color: 0xe8692b, title: 'INPUT', subtitle: 'STAGE 1', tag: 'U1' });
+          u1.position.set(-1.05, 0.24, 0);
+          const u2 = prefabs.icPackage({ w: 1.2, h: 0.34, d: 0.95, color: 0x0f766e, title: 'CORE', subtitle: 'STAGE 2', tag: 'U2', ridges: 3 });
+          u2.position.set(1.05, 0.24, 0);
+          const wire = primitives.curvedTube([[-0.45, 0.32, 0], [0, 0.72, 0], [0.45, 0.32, 0]], { color: 0xf59e0b });
+          v3.scene.add(board, u1, u2, wire);
+          v3.anchorCallouts([
+            { id: 's1', label: '输入模块 U1', color: '#e8692b', pos: [-1.05, 0.45, 0], dy: -38 },
+            { id: 's2', label: '处理核心 U2', color: '#0f766e', pos: [1.05, 0.45, 0], dy: -38 }
+          ]);
+          window._lessonV3 = { v3, u1, u2 };
+        }
+      }
+      if (window._lessonV3) {
+        Studio3D.setGroupHighlight(window._lessonV3.u1, sim.stepIndex === 0);
+        Studio3D.setGroupHighlight(window._lessonV3.u2, sim.stepIndex >= 1);
+        window._lessonV3.v3.setActivePart(sim.stepIndex === 0 ? 's1' : 's2');
+      }
+    } else {
+      vp.innerHTML = `<svg viewBox="0 0 640 320" style="width:100%;height:100%">
+        ${StudioSVG.isoBox({ x: 180, y: 150, label: '输入', sub: 'param=' + sim.param, fillTop: '#fcd4ad', fillLeft: '#eab382', fillRight: '#d39763', active: sim.stepIndex === 0 })}
+        ${StudioSVG.flowPath({ points: [[224, 150], [320, 150]], packetT: sim.stepIndex / 2, packetLabel: String(sim.current.metric) })}
+        ${StudioSVG.isoBox({ x: 380, y: 150, label: sim.current.title, sub: 'out=' + sim.current.metric, fillTop: '#a9c5e8', fillLeft: '#84a6d2', fillRight: '#6288b9', active: sim.stepIndex >= 1 })}
+      </svg>`;
+    }"""
+
     app_js = """(() => {
   let state = { param: 2, stepIndex: 0 };
   let app = null;
@@ -116,13 +159,9 @@ if (typeof module !== 'undefined' && module.exports) {
       onTogglePlay: () => {}
     });
 
-    vp.innerHTML = `<svg viewBox="0 0 640 320" style="width:100%;height:100%">
-      ${StudioSVG.isoBox({ x: 180, y: 150, label: '输入', sub: 'param=' + sim.param, fillTop: '#fcd4ad', fillLeft: '#eab382', fillRight: '#d39763', active: sim.stepIndex === 0 })}
-      ${StudioSVG.flowPath({ points: [[224, 150], [320, 150]], packetT: sim.stepIndex / 2, packetLabel: String(sim.current.metric) })}
-      ${StudioSVG.isoBox({ x: 380, y: 150, label: sim.current.title, sub: 'out=' + sim.current.metric, fillTop: '#a9c5e8', fillLeft: '#84a6d2', fillRight: '#6288b9', active: sim.stepIndex >= 1 })}
-    </svg>`;
+__STAGE_RENDER__
 
-    app.setBottomDock({
+    app.setBottomDock({""".replace("__STAGE_RENDER__", stage_render_js) + """
       mode: 'stepper',
       steps: sim.stages.map(s => ({ label: s.title })),
       currentStep: sim.stepIndex,

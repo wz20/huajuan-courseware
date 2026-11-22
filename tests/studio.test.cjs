@@ -121,3 +121,46 @@ test('StudioSVG 等轴框、时序图与比特位段渲染器输出结构完整'
   assert.equal(bitHost.children[0].children.length, 3);
   assert.equal(bitHost.children[0].children[0].style.width, '25.00%');
 });
+
+test('Studio3D 通用双层描边、几何原语与跨学科预制件库结构及动态状态正常', () => {
+  const ctx = { window: {} };
+  ctx.self = ctx;
+  vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(root, 'assets/vendor/three.js'), 'utf8'), ctx);
+  vm.runInContext(fs.readFileSync(path.join(root, 'assets/studio-3d.js'), 'utf8'), ctx);
+  const { Studio3D } = ctx.window;
+
+  // Verify double-layer silhouette hull + crease edge line on chamferBox
+  const box = Studio3D.primitives.chamferBox(2, 0.5, 1.5);
+  assert.equal(box.children.some(c => c.userData?._isSilhouetteHull), true);
+  assert.equal(box.children.some(c => c.userData?._isEdgeLine), true);
+
+  // Verify universal prefabs across electronics, computer architecture, mechanics & geography
+  const board = Studio3D.prefabs.circuitBoard({ title: 'LAB-PCB' });
+  const ic = Studio3D.prefabs.icPackage({ ridges: 3, pinSides: 4 });
+  const alu = Studio3D.prefabs.aluUnit();
+  const regs = Studio3D.prefabs.registerBank();
+  const sram = Studio3D.prefabs.sramMatrix();
+  const dimm = Studio3D.prefabs.dimmStick();
+  const ihs = Studio3D.prefabs.steppedCover();
+  const gear = Studio3D.prefabs.scientificProp({ type: 'gear' });
+  const compass = Studio3D.prefabs.scientificProp({ type: 'compass' });
+  const strata = Studio3D.prefabs.scientificProp({ type: 'layeredStrata' });
+
+  assert.equal(board.children.length > 10, true);
+  assert.equal(ic.children.length >= 6, true);
+  assert.equal(dimm.children.length >= 7, true);
+  assert.equal(gear.children.length, 2);
+  assert.equal(compass.children.length, 2);
+  assert.equal(strata.children.length, 3);
+
+  // Verify dynamic state hooks on ALU flags, Register cartridges, SRAM sets & Stepped Cover
+  alu.userData.setFlags({ Z: 0, N: 1, C: 1 });
+  regs.userData.updateRegisters({ PC: '0x04', R1: '-2' }, ['R1']);
+  sram.userData.setActiveSet(2);
+  ihs.userData.setOpen(false, { closedY: 0.74, closedOpacity: 0.94 });
+  assert.equal(ihs.position.y, 0.74);
+
+  Studio3D.setGroupHighlight(alu, true, { scale: 1.05 });
+  assert.equal(alu.scale.x, 1.05);
+});

@@ -60,8 +60,14 @@ python3 scripts/scaffold_lesson.py lessons/<slug> --title "课题中文名" --ar
 不要重写整页 HTML/CSS；直接在 `app.js` 内调用 `StudioApp.mount(config, hooks)` 与辅助库（接口细则见 [运行时接口](references/runtime.md)）：
 
 1. **多模块/多关卡设计**：在 `lesson.json` 中声明 `modules`（推荐 `2–4` 个渐进模块：结构认识 → 核心机理单步/调参 → 进阶对比/实验），同时接入左侧导航栏与顶部完成度进度条。
-2. **多视口同步联动（关键质感来源）**：
-   - **3D 硬描边渲染**：用 `Studio3D.createToonMesh(geo, color, { outline: true })` 做出线条锐利、阴影明亮的教科书模型，用 `anchorCallouts(...)` 绑定虚线引线标签，用 `setSignalPulses(...)` 演出信号流；
+2. **多视口同步联动与高精度 3D 建模（关键质感来源）**：
+   - **插画级双层描边 + 跨学科 3D 预制件库（禁止裸 `BoxGeometry` 积木堆砌）**：
+     - `Studio3D.createToonMesh` 默认自带 **Inverted-Hull 粗外轮廓剪影 (`silhouette: true`) + 内部折角细墨线 (`outline: true`) + 顶面丝印贴图支持 (`topTexture`)**；
+     - 凡构建 3D 场景，**严禁只用几个光秃秃的纯色 `THREE.BoxGeometry` 拼积木**。必须优先组合调用内置通用工具：
+       - **跨学科预制件 `Studio3D.prefabs`**：`circuitBoard`（倒角安装孔金手指电路板）、`icPackage`（鸥翼引脚丝印芯片）、`aluUnit`（V 型漏斗运算器 + Z/N/C 物理指示灯）、`registerBank`（带 3D 实时读数与读写弹起动画的寄存器/插槽组）、`sramMatrix`（晶圆网格阵列）、`dimmStick`（带卡扣插座的扩展卡/内存条）、`steppedCover`（可掀开爆炸视图的阶梯金属散热顶盖）、`passiveComponent`（贴片电容/电解电容/石英晶振）、`scientificProp`（机械齿轮 `gear`、磁罗盘 `compass`、地质地层 `layeredStrata`）；
+       - **通用几何构造器 `Studio3D.primitives`**：`chamferBox`（八角倒角块）、`extrudePolygon`（任意 2D 多边形立体挤出）、`curvedTube`（三维弯曲导管/杜邦跳线）、`tracePath`（带金属过孔的立体铜箔走线）、`pinRow`（金属引脚排）；
+       - **程序化高清贴图 `Studio3D.textures`**：`labelPlate`（顶面丝印铭牌）、`microGrid`（晶圆/PCB/标尺网格）、`dynamicReadout`（可在单步仿真中实时刷新的 3D 表面读数屏）。
+     - 用 `Studio3D.setGroupHighlight(group, isHot)` 统一高亮复合组件，用 `anchorCallouts(...)` 绑定虚线引线标签，用 `setSignalPulses(...)` 演出沿三维路径流动的信号脉冲；
    - **双视图与 WebGL 兜底**：传入 `onFallback` 并支持舞台内切换（如 `3D 视图 ↔ 2D 原理图/时序图`）。只转动或缩放镜头绝不能修改实验参数；
    - **含可点击芯片的试算/指令区**：代码或指令中用 `{{paramKey:显示文本}}` 标记关键数值，点击即直接切换参数并同步重绘 3D、原理图、KPI 和监视器；
    - **可回溯历史**：步进操作启用 `"history": true` 与 `createLessonHistory`，支持后退、前进与复位。

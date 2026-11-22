@@ -5509,22 +5509,388 @@ window.StudioSVG = (() => {
 
 </script>
 <script>
-/* huajuan-courseware Studio 3D Helper (cel-shaded hardware blocks, outlines, pulses, callout projection) */
+/* huajuan-courseware Studio 3D Engine v2.5
+ * Universal Technical Illustration 3D Toolkit:
+ * 1. Double-layer ink rendering (Inverted-Hull outer silhouette + EdgesGeometry inner creases + soft contact shadow)
+ * 2. Procedural high-DPI CanvasTexture generators (silkscreen label plates, silicon/PCB/ruler micro-grids, live 3D readouts)
+ * 3. Universal geometric primitives (chamferBox, extrudePolygon, curvedTube, tracePath, pinRow)
+ * 4. Cross-disciplinary high-detail 3D prefabs (circuitBoard, socketFrame, icPackage, aluUnit, registerBank, sramMatrix,
+ *    dimmStick, steppedCover, passiveComponent, scientificProp)
+ */
 window.Studio3D = (() => {
   function hasThree() {
-    return typeof THREE !== 'undefined' && THREE.WebGLRenderer;
+    return typeof THREE !== 'undefined' && !!THREE.WebGLRenderer;
+  }
+
+  // ==================== 1. PROCEDURAL CANVAS TEXTURES ====================
+  function makeCanvas(w, h) {
+    if (typeof document === 'undefined') return null;
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    const ctx = c.getContext('2d');
+    if (!ctx) return null;
+    return { canvas: c, ctx };
+  }
+
+  function wrapCanvasTexture(canvas) {
+    if (!canvas || typeof THREE === 'undefined') return null;
+    const tex = new THREE.CanvasTexture(canvas);
+    if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+    tex.needsUpdate = true;
+    return tex;
+  }
+
+  const textures = {
+    /**
+     * High-DPI silkscreen / laser-etched top label plate texture
+     */
+    labelPlate(opts = {}) {
+      const {
+        width = 512,
+        height = 320,
+        bg = '#1e293b',
+        fg = '#f8fafc',
+        accent = '#fbbf24',
+        border = 'rgba(255,255,255,0.32)',
+        title = '',
+        subtitle = '',
+        tag = '',
+        footer = '',
+        pin1 = false,
+        grid = true,
+        gridStyle = 'fine',
+        lines = []
+      } = opts;
+      const c = makeCanvas(width, height);
+      if (!c) return null;
+      const { canvas, ctx } = c;
+
+      // Base fill
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, width, height);
+
+      // Subtle micro-grid or circuit background pattern
+      if (grid) {
+        ctx.strokeStyle = gridStyle === 'silicon' ? 'rgba(255,255,255,0.11)' : 'rgba(255,255,255,0.065)';
+        ctx.lineWidth = 1;
+        const step = gridStyle === 'silicon' ? 24 : 32;
+        for (let x = step; x < width; x += step) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, height);
+          ctx.stroke();
+        }
+        for (let y = step; y < height; y += step) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(width, y);
+          ctx.stroke();
+        }
+      }
+
+      // Outer technical border frame
+      if (border) {
+        ctx.strokeStyle = border;
+        ctx.lineWidth = 4;
+        ctx.strokeRect(14, 14, width - 28, height - 28);
+
+        // Corner calibration ticks
+        ctx.fillStyle = accent;
+        const m = 22, len = 18;
+        ctx.fillRect(14, 14, len, 5);
+        ctx.fillRect(14, 14, 5, len);
+        ctx.fillRect(width - 14 - len, 14, len, 5);
+        ctx.fillRect(width - 19, 14, 5, len);
+        ctx.fillRect(14, height - 19, len, 5);
+        ctx.fillRect(14, height - 14 - len, 5, len);
+        ctx.fillRect(width - 14 - len, height - 19, len, 5);
+        ctx.fillRect(width - 19, height - 14 - len, 5, len);
+        void m;
+      }
+
+      // Optional Pin-1 gold orientation triangle at bottom-left
+      if (pin1) {
+        ctx.fillStyle = accent;
+        ctx.beginPath();
+        ctx.moveTo(28, height - 28);
+        ctx.lineTo(56, height - 28);
+        ctx.lineTo(28, height - 56);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Top tag pill
+      if (tag) {
+        ctx.font = '800 22px "SF Mono", "JetBrains Mono", monospace';
+        const tw = ctx.measureText(tag).width + 28;
+        ctx.fillStyle = accent;
+        ctx.beginPath();
+        ctx.roundRect ? ctx.roundRect(width - tw - 28, 28, tw, 36, 8) : ctx.rect(width - tw - 28, 28, tw, 36);
+        ctx.fill();
+        ctx.fillStyle = '#0f172a';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(tag, width - tw / 2 - 28, 47);
+      }
+
+      // Main Title
+      if (title) {
+        ctx.fillStyle = fg;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.font = '900 44px "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+        ctx.fillText(title, 34, 34);
+      }
+
+      // Subtitle
+      if (subtitle) {
+        ctx.fillStyle = accent;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.font = '700 25px "SF Mono", "JetBrains Mono", monospace';
+        ctx.fillText(subtitle, 36, title ? 92 : 42);
+      }
+
+      // Body telemetry / specification lines
+      if (lines && lines.length) {
+        ctx.fillStyle = fg;
+        ctx.globalAlpha = 0.88;
+        ctx.font = '600 23px "SF Mono", "JetBrains Mono", monospace';
+        lines.forEach((ln, idx) => {
+          ctx.fillText(ln, 36, 138 + idx * 34);
+        });
+        ctx.globalAlpha = 1;
+      }
+
+      // Bottom footer bar
+      if (footer) {
+        ctx.fillStyle = 'rgba(255,255,255,0.72)';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'bottom';
+        ctx.font = '700 20px "SF Mono", "JetBrains Mono", monospace';
+        ctx.fillText(footer, width - 32, height - 26);
+      }
+
+      return wrapCanvasTexture(canvas);
+    },
+
+    /**
+     * Procedural surface micro-grid (silicon wafer, PCB traces, breadboard, ruler, contour)
+     */
+    microGrid(opts = {}) {
+      const {
+        size = 512,
+        bg = '#18181b',
+        majorColor = 'rgba(255,255,255,0.22)',
+        minorColor = 'rgba(255,255,255,0.08)',
+        accentColor = '#f59e0b',
+        majorDiv = 4,
+        minorDiv = 16,
+        style = 'silicon'
+      } = opts;
+      const c = makeCanvas(size, size);
+      if (!c) return null;
+      const { canvas, ctx } = c;
+
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, size, size);
+
+      const minorStep = size / minorDiv;
+      ctx.strokeStyle = minorColor;
+      ctx.lineWidth = 1.2;
+      for (let i = 1; i < minorDiv; i++) {
+        const p = i * minorStep;
+        ctx.beginPath();
+        ctx.moveTo(p, 0);
+        ctx.lineTo(p, size);
+        ctx.moveTo(0, p);
+        ctx.lineTo(size, p);
+        ctx.stroke();
+      }
+
+      const majorStep = size / majorDiv;
+      ctx.strokeStyle = majorColor;
+      ctx.lineWidth = 2.4;
+      for (let i = 0; i <= majorDiv; i++) {
+        const p = i * majorStep;
+        ctx.beginPath();
+        ctx.moveTo(p, 0);
+        ctx.lineTo(p, size);
+        ctx.moveTo(0, p);
+        ctx.lineTo(size, p);
+        ctx.stroke();
+      }
+
+      if (style === 'silicon') {
+        // Metallic micro-pads at major intersections
+        ctx.fillStyle = accentColor;
+        for (let r = 0; r < majorDiv; r++) {
+          for (let col = 0; col < majorDiv; col++) {
+            const x = col * majorStep + 10;
+            const y = r * majorStep + 10;
+            ctx.strokeStyle = accentColor;
+            ctx.globalAlpha = 0.35;
+            ctx.strokeRect(x, y, majorStep - 20, majorStep - 20);
+            ctx.globalAlpha = 0.85;
+            ctx.fillRect(x + 4, y + 4, 10, 10);
+          }
+        }
+        ctx.globalAlpha = 1;
+      } else if (style === 'pcb') {
+        // Diagonal PCB trace lines and gold via rings
+        ctx.strokeStyle = 'rgba(217, 164, 65, 0.25)';
+        ctx.lineWidth = 3;
+        for (let i = 0; i < 6; i++) {
+          const y = 48 + i * 76;
+          ctx.beginPath();
+          ctx.moveTo(24, y);
+          ctx.lineTo(size * 0.45, y);
+          ctx.lineTo(size * 0.58, y + 36);
+          ctx.lineTo(size - 24, y + 36);
+          ctx.stroke();
+        }
+      } else if (style === 'ruler') {
+        ctx.fillStyle = majorColor;
+        for (let i = 0; i <= 40; i++) {
+          const x = (i / 40) * size;
+          const h = i % 10 === 0 ? 28 : i % 5 === 0 ? 18 : 10;
+          ctx.fillRect(x - 1, 0, 2, h);
+          ctx.fillRect(x - 1, size - h, 2, h);
+        }
+      }
+
+      return wrapCanvasTexture(canvas);
+    },
+
+    /**
+     * Live updatable 3D surface display texture (for register cells, OLED monitors, meters)
+     */
+    dynamicReadout(opts = {}) {
+      const width = opts.width || 256;
+      const height = opts.height || 160;
+      const c = makeCanvas(width, height);
+      if (!c) {
+        return { texture: null, canvas: null, update() {} };
+      }
+      const { canvas, ctx } = c;
+      const texture = wrapCanvasTexture(canvas);
+
+      function update(state = {}) {
+        const bg = state.bg || opts.bg || '#14261c';
+        const fg = state.fg || opts.fg || '#f8fafc';
+        const accent = state.accent || opts.accent || '#4ade80';
+        const active = !!state.active;
+        const title = state.title ?? opts.title ?? '';
+        const value = state.value ?? opts.value ?? '';
+        const sub = state.sub ?? opts.sub ?? '';
+
+        ctx.fillStyle = active ? (state.activeBg || '#064e3b') : bg;
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.strokeStyle = active ? accent : 'rgba(255,255,255,0.28)';
+        ctx.lineWidth = active ? 8 : 4;
+        ctx.strokeRect(6, 6, width - 12, height - 12);
+
+        // Status indicator bar at top
+        ctx.fillStyle = active ? accent : 'rgba(255,255,255,0.22)';
+        ctx.fillRect(16, 16, width - 32, 10);
+
+        ctx.fillStyle = accent;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.font = '900 32px "SF Mono", "JetBrains Mono", monospace';
+        ctx.fillText(String(title), 18, 34);
+
+        ctx.fillStyle = fg;
+        ctx.textAlign = 'right';
+        ctx.font = '900 42px "SF Mono", "JetBrains Mono", monospace';
+        ctx.fillText(String(value), width - 18, 72);
+
+        if (sub) {
+          ctx.fillStyle = 'rgba(255,255,255,0.7)';
+          ctx.textAlign = 'left';
+          ctx.font = '700 20px "SF Mono", "JetBrains Mono", monospace';
+          ctx.fillText(String(sub), 18, height - 34);
+        }
+        if (texture) texture.needsUpdate = true;
+      }
+
+      update(opts);
+      return { texture, canvas, update };
+    }
+  };
+
+  // ==================== 2. DOUBLE-OUTLINED TOON MESH & GROUP HELPERS ====================
+  function addSilhouetteHull(mesh, geometry, outlineColor, thickness, opacity) {
+    geometry.computeBoundingBox();
+    const bb = geometry.boundingBox;
+    if (!bb) return null;
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    bb.getSize(size);
+    bb.getCenter(center);
+
+    const sx = 1 + (2 * thickness) / Math.max(0.07, size.x);
+    const sy = 1 + (2 * thickness) / Math.max(0.07, size.y);
+    const sz = 1 + (2 * thickness) / Math.max(0.07, size.z);
+
+    const hullMat = new THREE.MeshBasicMaterial({
+      color: outlineColor,
+      side: THREE.BackSide,
+      transparent: opacity < 1,
+      opacity: opacity < 0.85 ? 0 : opacity,
+      depthWrite: opacity >= 0.85
+    });
+    const hull = new THREE.Mesh(geometry, hullMat);
+    hull.scale.set(sx, sy, sz);
+    hull.position.set(-center.x * (sx - 1), -center.y * (sy - 1), -center.z * (sz - 1));
+    hull.castShadow = false;
+    hull.receiveShadow = false;
+    hull.userData._isSilhouetteHull = true;
+    mesh.add(hull);
+    return hull;
+  }
+
+  function attachTopPlate(target, texture, w, d, topY, opacity = 1) {
+    if (!texture) return null;
+    const plateGeo = new THREE.PlaneGeometry(w, d);
+    const plateMat = new THREE.MeshStandardMaterial({
+      map: texture,
+      roughness: 0.52,
+      metalness: 0.08,
+      transparent: true,
+      opacity,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2
+    });
+    const plate = new THREE.Mesh(plateGeo, plateMat);
+    plate.rotation.x = -Math.PI / 2;
+    plate.position.y = topY + 0.004;
+    plate.castShadow = false;
+    plate.receiveShadow = true;
+    plate.userData._isTopPlate = true;
+    target.add(plate);
+    return plate;
   }
 
   function createToonMesh(geometry, colorHex, opts = {}) {
     const {
       outline = true,
+      silhouette = true,
+      silhouetteThickness = 0.02,
       outlineColor = 0x182026,
       outlineThreshold = 20,
-      metalness = 0.08,
-      roughness = 0.62,
+      metalness = 0.1,
+      roughness = 0.58,
       emissive = 0x000000,
       emissiveIntensity = 0,
-      opacity = 1
+      opacity = 1,
+      topTexture = null,
+      topSize = null,
+      isAccent = false
     } = opts;
 
     const mat = new THREE.MeshStandardMaterial({
@@ -5537,23 +5903,1078 @@ window.Studio3D = (() => {
       opacity
     });
     const mesh = new THREE.Mesh(geometry, mat);
-    mesh.castShadow = opacity >= 0.9;
+    mesh.castShadow = opacity >= 0.85;
     mesh.receiveShadow = true;
+    mesh.userData._baseHex = colorHex;
+    mesh.userData._isPrimaryToon = !isAccent;
 
+    let lines = null;
     if (outline) {
       const edges = new THREE.EdgesGeometry(geometry, outlineThreshold);
-      const lineMat = new THREE.LineBasicMaterial({ color: outlineColor, transparent: opacity < 1, opacity });
-      const lines = new THREE.LineSegments(edges, lineMat);
+      const lineMat = new THREE.LineBasicMaterial({
+        color: outlineColor,
+        transparent: opacity < 1,
+        opacity: Math.min(1, opacity * 1.1)
+      });
+      lines = new THREE.LineSegments(edges, lineMat);
+      lines.userData._isEdgeLine = true;
       mesh.add(lines);
     }
+
+    let hull = null;
+    if (silhouette) {
+      hull = addSilhouetteHull(mesh, geometry, outlineColor, silhouetteThickness, opacity);
+    }
+
+    let plate = null;
+    if (topTexture) {
+      geometry.computeBoundingBox();
+      const bb = geometry.boundingBox;
+      const sx = topSize ? topSize[0] : (bb ? (bb.max.x - bb.min.x) * 0.92 : 1);
+      const sz = topSize ? topSize[1] : (bb ? (bb.max.z - bb.min.z) * 0.92 : 1);
+      const topY = bb ? bb.max.y : 0.1;
+      plate = attachTopPlate(mesh, topTexture, sx, sz, topY, opacity);
+    }
+
+    mesh.userData.setOpacity = (nextOp) => {
+      mat.transparent = nextOp < 1;
+      mat.opacity = nextOp;
+      mesh.castShadow = nextOp >= 0.85;
+      if (lines) {
+        lines.material.transparent = nextOp < 1;
+        lines.material.opacity = Math.min(1, nextOp * 1.1);
+      }
+      if (hull) {
+        hull.visible = nextOp >= 0.85;
+        hull.material.opacity = nextOp;
+      }
+      if (plate) {
+        plate.material.opacity = nextOp;
+      }
+    };
+
     return mesh;
   }
 
+  function setGroupHighlight(root, isHot, opts = {}) {
+    if (!root) return;
+    const intensity = opts.intensity ?? 0.36;
+    const scale = opts.scale ?? 1.045;
+    if (opts.animateScale !== false && root.scale) {
+      root.scale.setScalar(isHot ? scale : 1.0);
+    }
+    root.traverse?.((obj) => {
+      if (obj.isMesh && obj.userData?._isPrimaryToon && obj.material?.emissive) {
+        const hex = opts.colorHex ?? obj.userData._baseHex ?? 0x000000;
+        obj.material.emissive.setHex(isHot ? hex : 0x000000);
+        obj.material.emissiveIntensity = isHot ? intensity : 0;
+      }
+    });
+  }
+
+  function setGroupOpacity(root, opacity) {
+    if (!root) return;
+    if (typeof root.userData?.setOpacity === 'function') {
+      root.userData.setOpacity(opacity);
+    }
+    root.traverse?.((obj) => {
+      if (obj !== root && typeof obj.userData?.setOpacity === 'function') {
+        obj.userData.setOpacity(opacity);
+      }
+    });
+  }
+
+  // ==================== 3. UNIVERSAL GEOMETRIC PRIMITIVES ====================
+  const primitives = {
+    /**
+     * Chamfered / octagonal 3D block centered at (0,0,0) with size (w, h, d)
+     */
+    chamferBox(w, h, d, opts = {}) {
+      const chamfer = Math.min(opts.chamfer ?? 0.08, Math.min(w, d) * 0.28);
+      const hw = w / 2, hd = d / 2;
+      const pts = [
+        [-hw + chamfer, -hd],
+        [hw - chamfer, -hd],
+        [hw, -hd + chamfer],
+        [hw, hd - chamfer],
+        [hw - chamfer, hd],
+        [-hw + chamfer, hd],
+        [-hw, hd - chamfer],
+        [-hw, -hd + chamfer]
+      ];
+      return primitives.extrudePolygon(pts, h, {
+        ...opts,
+        topSize: opts.topSize || [w - chamfer * 1.4, d - chamfer * 1.4]
+      });
+    },
+
+    /**
+     * Extrude an arbitrary 2D XZ polygon [[x, z], ...] vertically along Y to height h (centered at Y=0)
+     */
+    extrudePolygon(pointsXZ, h, opts = {}) {
+      const shape = new THREE.Shape();
+      pointsXZ.forEach(([x, z], i) => {
+        // Notice: When rotating X by +PI/2, shape's (x, y) maps to (x, y_shape -> +z_world) if we map (x, -z) or rotate -PI/2
+        if (i === 0) shape.moveTo(x, -z);
+        else shape.lineTo(x, -z);
+      });
+      shape.closePath();
+
+      const bevel = opts.bevel ?? 0.018;
+      const geo = new THREE.ExtrudeGeometry(shape, {
+        depth: Math.max(0.01, h - bevel * 2),
+        bevelEnabled: bevel > 0,
+        bevelThickness: bevel,
+        bevelSize: bevel,
+        bevelSegments: 2,
+        curveSegments: 8
+      });
+      geo.rotateX(-Math.PI / 2);
+      geo.computeBoundingBox();
+      const bb = geo.boundingBox;
+      if (bb) {
+        const cy = (bb.max.y + bb.min.y) / 2;
+        geo.translate(0, -cy, 0);
+      }
+
+      const topTex = opts.topTexture || (opts.label ? textures.labelPlate(opts.label) : null);
+      return createToonMesh(geo, opts.color ?? 0x64748b, {
+        ...opts,
+        topTexture: topTex
+      });
+    },
+
+    /**
+     * Smooth 3D curved tube / jumper wire / conduit along [[x,y,z], ...]
+     */
+    curvedTube(points3D, opts = {}) {
+      const radius = opts.radius ?? 0.042;
+      const color = opts.color ?? 0xe8692b;
+      const pts = points3D.map(p => new THREE.Vector3(...p));
+      const curve = new THREE.CatmullRomCurve3(pts);
+      const geo = new THREE.TubeGeometry(curve, opts.tubularSegments ?? 28, radius, opts.radialSegments ?? 10, false);
+
+      const grp = new THREE.Group();
+      const tube = createToonMesh(geo, color, {
+        outline: false,
+        silhouette: opts.silhouette !== false,
+        silhouetteThickness: opts.silhouetteThickness ?? 0.016,
+        outlineColor: opts.outlineColor ?? 0x182026,
+        roughness: 0.42,
+        metalness: 0.15,
+        isAccent: opts.isAccent ?? false
+      });
+      grp.add(tube);
+
+      if (opts.caps !== false && pts.length >= 2) {
+        const capGeo = new THREE.CylinderGeometry(radius * 1.38, radius * 1.38, radius * 2.4, 10);
+        const cStart = createToonMesh(capGeo, opts.capColor ?? 0x1e293b, { silhouetteThickness: 0.012, isAccent: true });
+        cStart.position.copy(pts[0]);
+        const cEnd = createToonMesh(capGeo, opts.capColor ?? 0x1e293b, { silhouetteThickness: 0.012, isAccent: true });
+        cEnd.position.copy(pts[pts.length - 1]);
+        grp.add(cStart, cEnd);
+      }
+      return grp;
+    },
+
+    /**
+     * Raised 3D PCB copper trace / bus path along XZ waypoints [[x,z], ...] with metallic via rings
+     */
+    tracePath(pointsXZ, opts = {}) {
+      const y = opts.y ?? 0.025;
+      const width = opts.width ?? 0.065;
+      const height = opts.height ?? 0.022;
+      const color = opts.color ?? 0xd9a441;
+      const vias = opts.vias !== false;
+
+      const grp = new THREE.Group();
+      for (let i = 1; i < pointsXZ.length; i++) {
+        const [x0, z0] = pointsXZ[i - 1];
+        const [x1, z1] = pointsXZ[i];
+        const dx = x1 - x0, dz = z1 - z0;
+        const len = Math.hypot(dx, dz);
+        if (len < 0.001) continue;
+        const seg = createToonMesh(new THREE.BoxGeometry(len + width * 0.4, height, width), color, {
+          outline: false,
+          silhouette: false,
+          metalness: 0.55,
+          roughness: 0.32,
+          isAccent: true
+        });
+        seg.position.set((x0 + x1) / 2, y, (z0 + z1) / 2);
+        seg.rotation.y = -Math.atan2(dz, dx);
+        grp.add(seg);
+      }
+
+      if (vias && pointsXZ.length >= 2) {
+        const viaGeo = new THREE.CylinderGeometry(width * 0.9, width * 0.9, height * 1.35, 12);
+        const holeGeo = new THREE.CylinderGeometry(width * 0.36, width * 0.36, height * 1.5, 10);
+        for (const [vx, vz] of [pointsXZ[0], pointsXZ[pointsXZ.length - 1]]) {
+          const pad = createToonMesh(viaGeo, 0xfbbf24, { outline: false, silhouette: false, metalness: 0.65, roughness: 0.25, isAccent: true });
+          pad.position.set(vx, y, vz);
+          const hole = new THREE.Mesh(holeGeo, new THREE.MeshBasicMaterial({ color: 0x0f172a }));
+          hole.position.set(vx, y + 0.002, vz);
+          grp.add(pad, hole);
+        }
+      }
+      return grp;
+    },
+
+    /**
+     * Row of metallic IC leads (gullwing SMD leads, DIP pins, or gold contact pads)
+     */
+    pinRow(opts = {}) {
+      const {
+        count = 6,
+        pitch = 0.16,
+        length = 0.15,
+        height = 0.12,
+        thickness = 0.045,
+        color = 0xdbe4ee,
+        style = 'gullwing'
+      } = opts;
+      const grp = new THREE.Group();
+      const span = (count - 1) * pitch;
+
+      for (let i = 0; i < count; i++) {
+        const offset = -span / 2 + i * pitch;
+        if (style === 'gullwing') {
+          const leg = new THREE.Group();
+          const upper = createToonMesh(new THREE.BoxGeometry(length * 0.55, thickness * 0.7, thickness), color, {
+            outline: false,
+            silhouette: false,
+            metalness: 0.65,
+            roughness: 0.28,
+            isAccent: true
+          });
+          upper.position.set(-length * 0.25, height * 0.45, 0);
+          const vertical = createToonMesh(new THREE.BoxGeometry(thickness * 0.7, height * 0.65, thickness), color, {
+            outline: false,
+            silhouette: false,
+            metalness: 0.65,
+            roughness: 0.28,
+            isAccent: true
+          });
+          vertical.position.set(-length * 0.5, height * 0.15, 0);
+          const foot = createToonMesh(new THREE.BoxGeometry(length * 0.6, thickness * 0.7, thickness * 1.1), color, {
+            outline: false,
+            silhouette: false,
+            metalness: 0.65,
+            roughness: 0.28,
+            isAccent: true
+          });
+          foot.position.set(-length * 0.72, -height * 0.15, 0);
+          leg.add(upper, vertical, foot);
+          leg.position.z = offset;
+          grp.add(leg);
+        } else {
+          const pad = createToonMesh(new THREE.BoxGeometry(length, thickness * 0.7, thickness * 1.25), 0xeab308, {
+            outline: false,
+            silhouette: false,
+            metalness: 0.6,
+            roughness: 0.3,
+            isAccent: true
+          });
+          pad.position.z = offset;
+          grp.add(pad);
+        }
+      }
+      return grp;
+    }
+  };
+
+  // ==================== 4. CROSS-DISCIPLINARY 3D PREFAB KIT ====================
+  const prefabs = {
+    /**
+     * Precision PCB / Package Substrate with chamfered corners, mounting holes, gold pad ring & silkscreen
+     */
+    circuitBoard(opts = {}) {
+      const {
+        w = 4.3,
+        h = 0.18,
+        d = 3.4,
+        color = 0x165b3c,
+        rimColor = 0xc79238,
+        chamfer = 0.18,
+        mountingHoles = true,
+        goldPadRing = true,
+        pin1 = true,
+        title = '',
+        subtitle = ''
+      } = opts;
+      const grp = new THREE.Group();
+
+      const pcbTex = textures.microGrid({
+        bg: '#145337',
+        majorColor: 'rgba(255,255,255,0.12)',
+        minorColor: 'rgba(255,255,255,0.04)',
+        style: 'pcb'
+      });
+
+      const board = primitives.chamferBox(w, h, d, {
+        chamfer,
+        color,
+        roughness: 0.62,
+        metalness: 0.12,
+        topTexture: pcbTex,
+        silhouetteThickness: 0.024
+      });
+      grp.add(board);
+
+      // Gold edge trim border
+      const trim = createToonMesh(new THREE.BoxGeometry(w - 0.12, h * 0.85, d - 0.12), rimColor, {
+        outline: false,
+        silhouette: false,
+        metalness: 0.5,
+        roughness: 0.35,
+        isAccent: true
+      });
+      trim.position.y = -0.008;
+      grp.add(trim);
+
+      // Corner mounting holes with gold copper annular rings
+      if (mountingHoles) {
+        const ringGeo = new THREE.CylinderGeometry(0.14, 0.14, h + 0.02, 14);
+        const holeGeo = new THREE.CylinderGeometry(0.07, 0.07, h + 0.03, 12);
+        const insetX = w / 2 - 0.28;
+        const insetZ = d / 2 - 0.28;
+        for (const [mx, mz] of [[-insetX, -insetZ], [insetX, -insetZ], [-insetX, insetZ], [insetX, insetZ]]) {
+          const ring = createToonMesh(ringGeo, 0xeab308, { outline: true, silhouette: false, metalness: 0.65, roughness: 0.25, isAccent: true });
+          ring.position.set(mx, 0, mz);
+          const hole = new THREE.Mesh(holeGeo, new THREE.MeshBasicMaterial({ color: 0x0f172a }));
+          hole.position.set(mx, 0.002, mz);
+          grp.add(ring, hole);
+        }
+      }
+
+      // Pin-1 Gold Orientation Triangle at front-left corner
+      if (pin1) {
+        const triPts = [
+          [-w / 2 + 0.18, d / 2 - 0.18],
+          [-w / 2 + 0.56, d / 2 - 0.18],
+          [-w / 2 + 0.18, d / 2 - 0.56]
+        ];
+        const tri = primitives.extrudePolygon(triPts, 0.025, {
+          color: 0xfacc15,
+          bevel: 0.003,
+          silhouette: false,
+          metalness: 0.65,
+          roughness: 0.25,
+          isAccent: true
+        });
+        tri.position.y = h / 2 + 0.012;
+        grp.add(tri);
+      }
+
+      // Perimeter gold LGA / edge contact pads
+      if (goldPadRing) {
+        const padGeoX = new THREE.BoxGeometry(0.11, 0.035, 0.18);
+        const padGeoZ = new THREE.BoxGeometry(0.18, 0.035, 0.11);
+        const stepX = 0.28;
+        for (let x = -w / 2 + 0.72; x <= w / 2 - 0.72; x += stepX) {
+          for (const zSide of [-d / 2 + 0.09, d / 2 - 0.09]) {
+            const p = createToonMesh(padGeoX, 0xeab308, { outline: false, silhouette: false, metalness: 0.6, roughness: 0.3, isAccent: true });
+            p.position.set(x, h / 2 + 0.01, zSide);
+            grp.add(p);
+          }
+        }
+        const stepZ = 0.28;
+        for (let z = -d / 2 + 0.64; z <= d / 2 - 0.64; z += stepZ) {
+          for (const xSide of [-w / 2 + 0.09, w / 2 - 0.09]) {
+            const p = createToonMesh(padGeoZ, 0xeab308, { outline: false, silhouette: false, metalness: 0.6, roughness: 0.3, isAccent: true });
+            p.position.set(xSide, h / 2 + 0.01, z);
+            grp.add(p);
+          }
+        }
+      }
+
+      // Optional silkscreen header strip along back edge
+      if (title || subtitle) {
+        const stripTex = textures.labelPlate({
+          width: 512,
+          height: 96,
+          bg: 'rgba(12, 46, 30, 0.92)',
+          fg: '#f8fafc',
+          accent: '#fbbf24',
+          border: 'rgba(255,255,255,0.22)',
+          title: title || 'SUBSTRATE',
+          tag: subtitle || 'REV 2.0',
+          grid: false
+        });
+        attachTopPlate(grp, stripTex, w * 0.56, 0.34, h / 2 + 0.002);
+      }
+
+      return grp;
+    },
+
+    /**
+     * IC Chip / Control Module Package with gull-wing metallic leads, orientation notch & silkscreen plate
+     */
+    icPackage(opts = {}) {
+      const {
+        w = 1.4,
+        h = 0.38,
+        d = 1.15,
+        color = 0xe8692b,
+        capColor = 0x1e293b,
+        title = 'IC MODULE',
+        subtitle = 'CONTROL / DECODER',
+        tag = 'U1',
+        accent = '#fbbf24',
+        pinsPerSide = 6,
+        pinSides = 2,
+         ridges = 0
+      } = opts;
+      const grp = new THREE.Group();
+
+      // Main chamfered package body
+      const body = primitives.chamferBox(w, h, d, {
+        chamfer: 0.09,
+        color,
+        silhouetteThickness: 0.022
+      });
+      grp.add(body);
+
+      // Raised silicon / ceramic die cap with laser-etched silkscreen
+      const plateTex = textures.labelPlate({
+        width: 512,
+        height: 340,
+        bg: '#1c1917',
+        fg: '#fafaf9',
+        accent,
+        title,
+        subtitle,
+        tag,
+        pin1: true,
+        gridStyle: 'silicon'
+      });
+      const capH = 0.09;
+      const cap = primitives.chamferBox(w * 0.82, capH, d * 0.78, {
+        chamfer: 0.06,
+        color: capColor,
+        topTexture: plateTex,
+        silhouette: false,
+        isAccent: true
+      });
+      cap.position.y = h / 2 + capH / 2 - 0.01;
+      grp.add(cap);
+
+      // Optional micro-decoder metallic ridges
+      if (ridges > 0) {
+        for (let i = 0; i < ridges; i++) {
+          const ry = h / 2 + capH + 0.02;
+          const rz = -d * 0.26 + (i / Math.max(1, ridges - 1)) * (d * 0.52);
+          const bar = createToonMesh(new THREE.BoxGeometry(w * 0.64, 0.035, 0.055), 0xfbd38d, {
+            silhouette: false,
+            isAccent: true
+          });
+          bar.position.set(0, ry, rz);
+          grp.add(bar);
+        }
+      }
+
+      // Metallic gull-wing leads on sides
+      if (pinsPerSide > 0) {
+        const pitchZ = (d * 0.74) / Math.max(1, pinsPerSide - 1);
+        const leftPins = primitives.pinRow({ count: pinsPerSide, pitch: pitchZ, length: 0.14, height: h * 0.65 });
+        leftPins.position.set(-w / 2, -h * 0.1, 0);
+        const rightPins = primitives.pinRow({ count: pinsPerSide, pitch: pitchZ, length: 0.14, height: h * 0.65 });
+        rightPins.rotation.y = Math.PI;
+        rightPins.position.set(w / 2, -h * 0.1, 0);
+        grp.add(leftPins, rightPins);
+
+        if (pinSides === 4) {
+          const pitchX = (w * 0.72) / Math.max(1, pinsPerSide - 1);
+          const frontPins = primitives.pinRow({ count: pinsPerSide, pitch: pitchX, length: 0.14, height: h * 0.65 });
+          frontPins.rotation.y = Math.PI / 2;
+          frontPins.position.set(0, -h * 0.1, d / 2);
+          const backPins = primitives.pinRow({ count: pinsPerSide, pitch: pitchX, length: 0.14, height: h * 0.65 });
+          backPins.rotation.y = -Math.PI / 2;
+          backPins.position.set(0, -h * 0.1, -d / 2);
+          grp.add(frontPins, backPins);
+        }
+      }
+
+      return grp;
+    },
+
+    /**
+     * Iconic V-Notched Chevron Arithmetic Logic Unit (ALU) with Dual Input Ports & Live Z/N/C Flag LEDs
+     */
+    aluUnit(opts = {}) {
+      const {
+        w = 1.5,
+        h = 0.44,
+        d = 1.25,
+        color = 0x0f766e,
+        accentColor = 0x5eead4,
+        title = 'ALU 算术逻辑核',
+        subtitle = 'ADD · SUB · CMP · FLAGS'
+      } = opts;
+      const grp = new THREE.Group();
+      const hw = w / 2, hd = d / 2;
+
+      // V-shaped Chevron footprint in XZ plane (inputs enter at -Z twin legs, output exits at +Z apex)
+      const chevronPts = [
+        [-hw, -hd],
+        [-hw * 0.22, -hd],
+        [0, -hd * 0.34],
+        [hw * 0.22, -hd],
+        [hw, -hd],
+        [hw * 0.68, hd],
+        [-hw * 0.68, hd]
+      ];
+      const base = primitives.extrudePolygon(chevronPts, h, {
+        color,
+        bevel: 0.024,
+        silhouetteThickness: 0.022
+      });
+      grp.add(base);
+
+      // Twin input operand manifolds (OP-A & OP-B) on the two back legs
+      for (const [lx, label] of [[-hw * 0.56, 'IN_A'], [hw * 0.56, 'IN_B']]) {
+        const port = primitives.chamferBox(w * 0.32, 0.11, d * 0.32, {
+          chamfer: 0.04,
+          color: accentColor,
+          silhouette: false,
+          isAccent: true,
+          label: {
+            width: 256,
+            height: 160,
+            bg: '#0d4742',
+            fg: '#ecfeff',
+            accent: '#5eead4',
+            title: label,
+            subtitle: '16-BIT',
+            grid: false
+          }
+        });
+        port.position.set(lx, h / 2 + 0.045, -hd * 0.52);
+        grp.add(port);
+      }
+
+      // Central silkscreen plate on the ALU combiner deck
+      const deckTex = textures.labelPlate({
+        width: 512,
+        height: 260,
+        bg: '#092e2b',
+        fg: '#f0fdfa',
+        accent: '#5eead4',
+        title,
+        subtitle,
+        tag: '16b',
+        gridStyle: 'silicon'
+      });
+      const deck = primitives.chamferBox(w * 0.86, 0.07, d * 0.46, {
+        chamfer: 0.05,
+        color: 0x115e59,
+        topTexture: deckTex,
+        silhouette: false,
+        isAccent: true
+      });
+      deck.position.set(0, h / 2 + 0.03, hd * 0.24);
+      grp.add(deck);
+
+      // 3 Physical Status Flag Indicator LEDs (Z, N, C) along front output edge
+      const flagLeds = {};
+      const flagDefs = [
+        { key: 'Z', x: -0.34, onHex: 0x38bdf8 },
+        { key: 'N', x: 0, onHex: 0xf97316 },
+        { key: 'C', x: 0.34, onHex: 0xfacc15 }
+      ];
+      for (const f of flagDefs) {
+        const bezel = createToonMesh(new THREE.CylinderGeometry(0.11, 0.12, 0.05, 14), 0x0f172a, {
+          silhouette: false,
+          isAccent: true
+        });
+        bezel.position.set(f.x, h / 2 + 0.03, hd * 0.72);
+        const dome = new THREE.Mesh(
+          new THREE.SphereGeometry(0.075, 12, 12),
+          new THREE.MeshStandardMaterial({
+            color: 0x334155,
+            emissive: 0x000000,
+            emissiveIntensity: 0,
+            roughness: 0.25
+          })
+        );
+        dome.position.set(f.x, h / 2 + 0.06, hd * 0.72);
+        grp.add(bezel, dome);
+        flagLeds[f.key] = { dome, onHex: f.onHex };
+      }
+
+      // Metallic gull-wing leads on flanks
+      const leftLeads = primitives.pinRow({ count: 5, pitch: 0.18, length: 0.13, height: h * 0.6 });
+      leftLeads.position.set(-hw * 0.85, -h * 0.1, 0);
+      const rightLeads = primitives.pinRow({ count: 5, pitch: 0.18, length: 0.13, height: h * 0.6 });
+      rightLeads.rotation.y = Math.PI;
+      rightLeads.position.set(hw * 0.85, -h * 0.1, 0);
+      grp.add(leftLeads, rightLeads);
+
+      grp.userData.setFlags = (flags = {}) => {
+        for (const [k, item] of Object.entries(flagLeds)) {
+          const on = !!flags[k];
+          item.dome.material.color.setHex(on ? item.onHex : 0x475569);
+          item.dome.material.emissive.setHex(on ? item.onHex : 0x000000);
+          item.dome.material.emissiveIntensity = on ? 0.85 : 0;
+        }
+      };
+
+      return grp;
+    },
+
+    /**
+     * Multi-Slot Articulated Register File Bank with Live 3D Value Readouts & Physical Pop-up on Access
+     */
+    registerBank(opts = {}) {
+      const {
+        w = 1.75,
+        h = 0.34,
+        d = 1.02,
+        color = 0x1b4d36,
+        slots = [
+          { id: 'PC', value: '0x00', sub: 'ADDR' },
+          { id: 'IR', value: '0x1504', sub: 'INST' },
+          { id: 'R0', value: '0', sub: 'ZERO' },
+          { id: 'R1', value: '3', sub: 'ACC' },
+          { id: 'R2', value: '0', sub: 'GPR' }
+        ]
+      } = opts;
+      const grp = new THREE.Group();
+
+      // Base frame chassis
+      const base = primitives.chamferBox(w, h, d, {
+        chamfer: 0.08,
+        color,
+        silhouetteThickness: 0.022
+      });
+      grp.add(base);
+
+      const slotMap = {};
+      const count = slots.length;
+      const slotW = (w - 0.24) / count - 0.04;
+      const slotD = d * 0.76;
+      const slotH = 0.12;
+      const startX = -(w - 0.24) / 2 + slotW / 2 + 0.02;
+
+      slots.forEach((s, idx) => {
+        const sx = startX + idx * (slotW + 0.04);
+        const readout = textures.dynamicReadout({
+          width: 192,
+          height: 256,
+          title: s.id,
+          value: s.value,
+          sub: s.sub || '16-BIT',
+          bg: '#0f291e',
+          accent: '#86efac'
+        });
+        const card = primitives.chamferBox(slotW, slotH, slotD, {
+          chamfer: 0.03,
+          color: 0x2a6f4e,
+          topTexture: readout.texture,
+          silhouette: false,
+          isAccent: true
+        });
+        card.position.set(sx, h / 2 + slotH / 2 - 0.01, 0);
+        grp.add(card);
+        slotMap[s.id] = { card, readout, baseY: h / 2 + slotH / 2 - 0.01, meta: s };
+      });
+
+      // Gold bus header pins along front and back
+      const pinsFront = primitives.pinRow({ count: 7, pitch: 0.21, style: 'pads', length: 0.08 });
+      pinsFront.rotation.y = Math.PI / 2;
+      pinsFront.position.set(0, -h * 0.28, d / 2 + 0.03);
+      grp.add(pinsFront);
+
+      grp.userData.updateRegisters = (values = {}, activeIds = []) => {
+        const activeSet = new Set(activeIds);
+        for (const [id, item] of Object.entries(slotMap)) {
+          const val = values[id] !== undefined ? String(values[id]) : item.meta.value;
+          const isHot = activeSet.has(id);
+          item.readout.update({
+            title: id,
+            value: val,
+            sub: item.meta.sub || '16-BIT',
+            active: isHot
+          });
+          item.card.position.y = item.baseY + (isHot ? 0.055 : 0);
+        }
+      };
+
+      return grp;
+    },
+
+    /**
+     * High-Density 6T-SRAM Cache Matrix with Silicon Micro-Grid, Address Decoder Bar & 4 Cache Sets
+     */
+    sramMatrix(opts = {}) {
+      const {
+        w = 2.1,
+        h = 0.3,
+        d = 0.92,
+        color = 0x5b21b6,
+        sets = ['SET 0', 'SET 1', 'SET 2', 'SET 3'],
+        title = 'L1 CACHE · 6T SRAM'
+      } = opts;
+      const grp = new THREE.Group();
+
+      const chassis = primitives.chamferBox(w, h, d, {
+        chamfer: 0.08,
+        color,
+        silhouetteThickness: 0.022
+      });
+      grp.add(chassis);
+
+      // Top address decoder spine along the back edge
+      const spineTex = textures.labelPlate({
+        width: 512,
+        height: 110,
+        bg: '#2e1065',
+        fg: '#f5f3ff',
+        accent: '#c4b5fd',
+        title,
+        tag: '4-SET',
+        grid: false
+      });
+      const spine = primitives.chamferBox(w * 0.9, 0.08, d * 0.24, {
+        chamfer: 0.03,
+        color: 0x3b0764,
+        topTexture: spineTex,
+        silhouette: false,
+        isAccent: true
+      });
+      spine.position.set(0, h / 2 + 0.035, -d * 0.31);
+      grp.add(spine);
+
+      // 4 distinct SRAM macro banks with silicon wafer grid texture
+      const bankMeshes = [];
+      const bankW = (w * 0.9 - 0.15) / sets.length;
+      const bankD = d * 0.56;
+      const startX = -(w * 0.9) / 2 + bankW / 2;
+
+      sets.forEach((sLabel, idx) => {
+        const bx = startX + idx * (bankW + 0.05);
+        const bankTex = textures.labelPlate({
+          width: 240,
+          height: 240,
+          bg: '#3b1979',
+          fg: '#ede9fe',
+          accent: '#f59e0b',
+          title: sLabel,
+          subtitle: '6T ARRAY',
+          grid: true,
+          gridStyle: 'silicon'
+        });
+        const bank = primitives.chamferBox(bankW, 0.1, bankD, {
+          chamfer: 0.03,
+          color: 0x7c3aed,
+          topTexture: bankTex,
+          silhouette: false,
+          isAccent: true
+        });
+        bank.position.set(bx, h / 2 + 0.045, d * 0.12);
+        grp.add(bank);
+        bankMeshes.push(bank);
+      });
+
+      grp.userData.setActiveSet = (setIdx) => {
+        bankMeshes.forEach((b, idx) => {
+          const hot = idx === setIdx;
+          b.position.y = h / 2 + 0.045 + (hot ? 0.05 : 0);
+          b.material.emissive?.setHex(hot ? 0xa855f7 : 0x000000);
+          b.material.emissiveIntensity = hot ? 0.5 : 0;
+        });
+      };
+
+      return grp;
+    },
+
+    /**
+     * DIMM Memory Module Mounted in a Latching Motherboard Socket with Gull-Wing DRAM Chips
+     */
+    dimmStick(opts = {}) {
+      const {
+        w = 1.05,
+        h = 0.72,
+        d = 2.85,
+        boardColor = 0x1d4ed8,
+        chipCount = 4,
+        title = 'DDR DRAM · MAIN MEMORY'
+      } = opts;
+      const grp = new THREE.Group();
+
+      // Dark motherboard DIMM slot base with white retention latches at both ends
+      const slotBase = primitives.chamferBox(w * 0.76, 0.24, d + 0.22, {
+        chamfer: 0.05,
+        color: 0x1e293b,
+        silhouetteThickness: 0.02
+      });
+      slotBase.position.y = -0.18;
+      grp.add(slotBase);
+
+      for (const zSign of [-1, 1]) {
+        const latch = primitives.chamferBox(w * 0.62, 0.34, 0.16, {
+          chamfer: 0.03,
+          color: 0xe2e8f0,
+          silhouette: false,
+          isAccent: true
+        });
+        latch.position.set(0, -0.05, zSign * (d / 2 + 0.12));
+        grp.add(latch);
+      }
+
+      // Gold edge connector comb along bottom of memory PCB
+      const goldComb = createToonMesh(new THREE.BoxGeometry(w * 0.84, 0.12, d * 0.92), 0xeab308, {
+        silhouette: false,
+        metalness: 0.65,
+        roughness: 0.25,
+        isAccent: true
+      });
+      goldComb.position.y = -0.02;
+      grp.add(goldComb);
+
+      // Memory PCB deck with top silkscreen and DRAM IC packages
+      const memDeck = primitives.chamferBox(w, 0.26, d, {
+        chamfer: 0.07,
+        color: boardColor,
+        silhouetteThickness: 0.022
+      });
+      memDeck.position.y = 0.15;
+      grp.add(memDeck);
+
+      // Top spine label
+      const spineTex = textures.labelPlate({
+        width: 512,
+        height: 110,
+        bg: '#0f172a',
+        fg: '#f8fafc',
+        accent: '#60a5fa',
+        title,
+        tag: 'DIMM_A1',
+        grid: false
+      });
+      attachTopPlate(memDeck, spineTex, d * 0.84, w * 0.28, 0.132);
+      // Rotate top spine plate to run along Z axis
+      const lastChild = memDeck.children[memDeck.children.length - 1];
+      if (lastChild && lastChild.userData?._isTopPlate) {
+        lastChild.rotation.z = Math.PI / 2;
+        lastChild.position.x = w * 0.28;
+      }
+
+      // Row of black DRAM BGA/SOJ IC chips with metallic leads
+      const chipSpan = d * 0.76;
+      for (let i = 0; i < chipCount; i++) {
+        const cz = -chipSpan / 2 + (i / Math.max(1, chipCount - 1)) * chipSpan;
+        const ic = prefabs.icPackage({
+          w: w * 0.44,
+          h: 0.14,
+          d: (chipSpan / chipCount) * 0.72,
+          color: 0x0f172a,
+          capColor: 0x1e293b,
+          title: `DRAM ${i}`,
+          subtitle: '64M×16',
+          tag: `U${i + 1}`,
+          accent: '#38bdf8',
+          pinsPerSide: 4
+        });
+        ic.position.set(-w * 0.14, 0.34, cz);
+        grp.add(ic);
+      }
+
+      return grp;
+    },
+
+    /**
+     * Realistic Stepped Octagonal Metallic CPU IHS Heat Spreader with Laser-Etched Markings
+     */
+    steppedCover(opts = {}) {
+      const {
+        w = 3.85,
+        h = 0.16,
+        d = 3.05,
+        color = 0xcbd5e1,
+        title = 'HUAJUAN CORE-16',
+        subtitle = '16-BIT EDUCATIONAL MICROARCHITECTURE',
+        tag = 'IHS',
+        opacity = 0.92
+      } = opts;
+      const grp = new THREE.Group();
+
+      // Lower mounting flange skirt
+      const flange = primitives.chamferBox(w, h * 0.45, d, {
+        chamfer: 0.22,
+        color: 0x94a3b8,
+        metalness: 0.42,
+        roughness: 0.28,
+        opacity,
+        silhouette: opacity >= 0.85
+      });
+      grp.add(flange);
+
+      // Raised octagonal central heat-spreader plateau with laser-etched specification plate
+      const ihsTex = textures.labelPlate({
+        width: 512,
+        height: 360,
+        bg: '#cbd5e1',
+        fg: '#0f172a',
+        accent: '#0f766e',
+        border: 'rgba(15,23,42,0.35)',
+        title,
+        subtitle,
+        tag,
+        footer: 'LGA-EDUCATIONAL · SILICON DIE INSIDE',
+        pin1: true,
+        grid: false
+      });
+
+      const plateau = primitives.chamferBox(w * 0.84, h * 0.75, d * 0.82, {
+        chamfer: 0.24,
+        color,
+        metalness: 0.38,
+        roughness: 0.24,
+        opacity,
+        topTexture: ihsTex,
+        silhouette: opacity >= 0.85
+      });
+      plateau.position.y = h * 0.55;
+      grp.add(plateau);
+
+      grp.userData.setOpen = (isOpen, cfg = {}) => {
+        const openY = cfg.openY ?? 1.65;
+        const closedY = cfg.closedY ?? 0.74;
+        const openOp = cfg.openOpacity ?? 0.18;
+        const closedOp = cfg.closedOpacity ?? 0.94;
+        grp.position.y = isOpen ? openY : closedY;
+        setGroupOpacity(grp, isOpen ? openOp : closedOp);
+      };
+
+      return grp;
+    },
+
+    /**
+     * Small Passive & Board Components (smd-cap, electrolytic-cap, crystal, resistor, led)
+     */
+    passiveComponent(opts = {}) {
+      const type = opts.type || 'smd-cap';
+      const grp = new THREE.Group();
+
+      if (type === 'smd-cap') {
+        const w = opts.w ?? 0.16, h = opts.h ?? 0.08, d = opts.d ?? 0.09;
+        const termGeo = new THREE.BoxGeometry(w * 0.26, h, d);
+        const bodyGeo = new THREE.BoxGeometry(w * 0.52, h * 0.94, d * 0.94);
+        const t1 = createToonMesh(termGeo, 0xe2e8f0, { outline: false, silhouette: false, metalness: 0.7, roughness: 0.25, isAccent: true });
+        t1.position.x = -w * 0.36;
+        const t2 = createToonMesh(termGeo, 0xe2e8f0, { outline: false, silhouette: false, metalness: 0.7, roughness: 0.25, isAccent: true });
+        t2.position.x = w * 0.36;
+        const mid = createToonMesh(bodyGeo, opts.color ?? 0xb45309, { outline: false, silhouette: false, isAccent: true });
+        grp.add(t1, mid, t2);
+      } else if (type === 'crystal') {
+        // Metallic HC-49 stadium quartz oscillator can
+        const base = primitives.chamferBox(0.52, 0.05, 0.24, { chamfer: 0.06, color: 0x94a3b8, silhouette: false, metalness: 0.65, isAccent: true });
+        const canTex = textures.labelPlate({
+          width: 256,
+          height: 128,
+          bg: '#cbd5e1',
+          fg: '#0f172a',
+          accent: '#eab308',
+          title: opts.label || '16.0MHz',
+          subtitle: 'CLK OSC',
+          grid: false
+        });
+        const can = primitives.chamferBox(0.44, 0.16, 0.19, {
+          chamfer: 0.06,
+          color: 0xe2e8f0,
+          topTexture: canTex,
+          metalness: 0.65,
+          roughness: 0.2,
+          silhouetteThickness: 0.014,
+          isAccent: true
+        });
+        can.position.y = 0.1;
+        grp.add(base, can);
+      } else if (type === 'electrolytic-cap') {
+        const r = opts.radius ?? 0.14, h = opts.h ?? 0.34;
+        const base = createToonMesh(new THREE.BoxGeometry(r * 2.1, 0.05, r * 2.1), 0x1e293b, { silhouette: false, isAccent: true });
+        const body = createToonMesh(new THREE.CylinderGeometry(r, r, h, 16), opts.color ?? 0x1e3a8a, { silhouetteThickness: 0.016, isAccent: true });
+        body.position.y = h / 2 + 0.025;
+        const cap = createToonMesh(new THREE.CylinderGeometry(r * 0.88, r * 0.88, 0.02, 16), 0xdbe4ee, { outline: false, silhouette: false, metalness: 0.7, isAccent: true });
+        cap.position.y = h + 0.03;
+        grp.add(base, body, cap);
+      }
+      return grp;
+    },
+
+    /**
+     * Cross-Disciplinary Scientific Props (gear, compass, lens, layeredStrata) for physics, geography & outdoor
+     */
+    scientificProp(opts = {}) {
+      const type = opts.type || 'gear';
+      const grp = new THREE.Group();
+
+      if (type === 'gear') {
+        const teeth = opts.teeth ?? 12;
+        const rOuter = opts.radius ?? 0.65;
+        const rInner = rOuter * 0.8;
+        const h = opts.h ?? 0.18;
+        const pts = [];
+        for (let i = 0; i < teeth * 2; i++) {
+          const a0 = (i / (teeth * 2)) * Math.PI * 2;
+          const a1 = ((i + 0.5) / (teeth * 2)) * Math.PI * 2;
+          const r = i % 2 === 0 ? rOuter : rInner;
+          pts.push([Math.cos(a0) * r, Math.sin(a0) * r]);
+          pts.push([Math.cos(a1) * r, Math.sin(a1) * r]);
+        }
+        const wheel = primitives.extrudePolygon(pts, h, { color: opts.color ?? 0xd97706, bevel: 0.015 });
+        const hub = createToonMesh(new THREE.CylinderGeometry(rInner * 0.35, rInner * 0.35, h * 1.35, 16), 0x334155, { isAccent: true });
+        grp.add(wheel, hub);
+      } else if (type === 'compass') {
+        const r = opts.radius ?? 0.7;
+        const caseMesh = createToonMesh(new THREE.CylinderGeometry(r, r * 1.04, 0.16, 24), opts.color ?? 0xb45309);
+        const dialTex = textures.labelPlate({
+          width: 256,
+          height: 256,
+          bg: '#fef3c7',
+          fg: '#1c1917',
+          accent: '#dc2626',
+          title: 'N · E · S · W',
+          subtitle: opts.label || 'AZIMUTH 0°',
+          grid: true
+        });
+        attachTopPlate(caseMesh, dialTex, r * 1.5, r * 1.5, 0.082);
+        const needle = primitives.extrudePolygon([[0, -r * 0.65], [0.09, 0], [0, r * 0.65], [-0.09, 0]], 0.04, {
+          color: 0xdc2626,
+          bevel: 0.005,
+          silhouette: false,
+          isAccent: true
+        });
+        needle.position.y = 0.11;
+        grp.add(caseMesh, needle);
+      } else if (type === 'layeredStrata') {
+        const layers = opts.layers || [
+          { h: 0.22, color: 0x78350f, label: '基岩层 Bedrock' },
+          { h: 0.2, color: 0xb45309, label: '砂岩层 Sandstone' },
+          { h: 0.16, color: 0x15803d, label: '表土植被 Topsoil' }
+        ];
+        let y = 0;
+        layers.forEach((l, idx) => {
+          const w = (opts.w ?? 2.2) - idx * 0.14;
+          const d = (opts.d ?? 1.6) - idx * 0.12;
+          const block = primitives.chamferBox(w, l.h, d, { chamfer: 0.08, color: l.color });
+          block.position.y = y + l.h / 2;
+          y += l.h;
+          grp.add(block);
+        });
+      }
+      return grp;
+    }
+  };
+
+  // ==================== 5. VIEWPORT & CAMERA CONTROLLER ====================
   function createViewport(container, opts = {}) {
     const {
-      cameraPos = [7.4, 6.2, 7.6],
-      target = [0, 0.4, 0],
-      fov = 38,
+      cameraPos = [7.2, 6.0, 7.4],
+      target = [0, 0.35, 0],
+      fov = 37,
+      groundPedestal = true,
       onFallback = null,
       onSelectPart = null,
       showToolbar = true
@@ -5586,9 +7007,9 @@ window.Studio3D = (() => {
     const camera = new THREE.PerspectiveCamera(fov, 1, 0.1, 120);
 
     // Balanced daylight studio rig matching warm-drafting / blueprint clarity
-    const hemi = new THREE.HemisphereLight(0xfffdf8, 0x8f9aa6, 1.55);
+    const hemi = new THREE.HemisphereLight(0xfffdf8, 0x8a95a5, 1.58);
     scene.add(hemi);
-    const keyLight = new THREE.DirectionalLight(0xfff5e4, 1.65);
+    const keyLight = new THREE.DirectionalLight(0xfff5e4, 1.72);
     keyLight.position.set(8, 13, 9);
     keyLight.castShadow = true;
     keyLight.shadow.mapSize.set(1024, 1024);
@@ -5599,9 +7020,21 @@ window.Studio3D = (() => {
     keyLight.shadow.normalBias = 0.02;
     scene.add(keyLight);
 
-    const rimLight = new THREE.DirectionalLight(0xcce2ff, 0.55);
+    const rimLight = new THREE.DirectionalLight(0xcce2ff, 0.62);
     rimLight.position.set(-7, 6, -6);
     scene.add(rimLight);
+
+    // Subtle contact shadow receiver plane so the model feels grounded on the drafting table
+    if (groundPedestal && THREE.ShadowMaterial) {
+      const shadowPlane = new THREE.Mesh(
+        new THREE.PlaneGeometry(18, 18),
+        new THREE.ShadowMaterial({ opacity: 0.16 })
+      );
+      shadowPlane.rotation.x = -Math.PI / 2;
+      shadowPlane.position.y = -0.22;
+      shadowPlane.receiveShadow = true;
+      scene.add(shadowPlane);
+    }
 
     // Orbit state strictly isolated from domain model state
     const defaultTarget = new THREE.Vector3(...target);
@@ -5872,7 +7305,6 @@ window.Studio3D = (() => {
         camState.target.lerpVectors(tw.startTarget, tw.endTarget, k);
         camState.spherical.radius = THREE.MathUtils.lerp(tw.startSph.radius, tw.endSph.radius, k);
         camState.spherical.phi = THREE.MathUtils.lerp(tw.startSph.phi, tw.endSph.phi, k);
-        // Shortest angular lerp for theta
         let dTheta = tw.endSph.theta - tw.startSph.theta;
         while (dTheta > Math.PI) dTheta -= Math.PI * 2;
         while (dTheta < -Math.PI) dTheta += Math.PI * 2;
@@ -5896,6 +7328,11 @@ window.Studio3D = (() => {
       camera,
       renderer,
       createToonMesh,
+      setGroupHighlight,
+      setGroupOpacity,
+      textures,
+      primitives,
+      prefabs,
       registerPickable,
       anchorCallouts,
       setActivePart,
@@ -5915,7 +7352,16 @@ window.Studio3D = (() => {
     };
   }
 
-  return { hasThree, createToonMesh, createViewport };
+  return {
+    hasThree,
+    createToonMesh,
+    setGroupHighlight,
+    setGroupOpacity,
+    textures,
+    primitives,
+    prefabs,
+    createViewport
+  };
 })();
 
 </script>
@@ -7042,8 +8488,8 @@ if (typeof module !== 'undefined' && module.exports) {
     if (webglFailed) return false;
 
     v3 = Studio3D.createViewport(container, {
-      cameraPos: [5.4, 4.9, 5.6],
-      target: [0.35, 0.35, 0.2],
+      cameraPos: [5.4, 4.95, 5.65],
+      target: [0.35, 0.32, 0.2],
       onSelectPart: onPick,
       onFallback: () => {
         webglFailed = true;
@@ -7051,115 +8497,204 @@ if (typeof module !== 'undefined' && module.exports) {
     });
     if (!v3) return false;
 
-    const { scene, createToonMesh, registerPickable } = v3;
+    const { scene, registerPickable, prefabs, primitives, textures } = v3;
 
-    // 1. PCB Motherboard Base & LGA CPU Socket Substrate
-    const pcb = createToonMesh(new THREE.BoxGeometry(7.2, 0.14, 4.8), 0x1e4337, { outlineColor: 0x0d1f18 });
-    pcb.position.set(0.55, -0.07, 0.25);
+    // ==================== LAYER 1: MOTHERBOARD & VRM / CLOCK PERIPHERALS ====================
+    const moboTex = textures.microGrid({
+      bg: '#102820',
+      majorColor: 'rgba(255,255,255,0.08)',
+      minorColor: 'rgba(255,255,255,0.03)',
+      style: 'pcb'
+    });
+    const pcb = primitives.chamferBox(7.4, 0.14, 5.0, {
+      chamfer: 0.24,
+      color: 0x132e25,
+      topTexture: moboTex,
+      silhouetteThickness: 0.024
+    });
+    pcb.position.set(0.55, -0.08, 0.25);
     scene.add(pcb);
 
-    const substrate = createToonMesh(new THREE.BoxGeometry(4.2, 0.16, 3.4), 0x2c6e58, { outlineColor: 0x12261e });
-    substrate.position.set(-0.25, 0.08, 0.12);
+    // Motherboard VRM electrolytic capacitors & 16MHz Clock Crystal Oscillator
+    for (const [cx, cz] of [[-2.75, -1.65], [-2.75, -1.15], [-2.75, -0.65]]) {
+      const ecap = prefabs.passiveComponent({ type: 'electrolytic-cap', radius: 0.13, h: 0.32, color: 0x1e3a8a });
+      ecap.position.set(cx, 0.0, cz);
+      scene.add(ecap);
+    }
+    const clkCrystal = prefabs.passiveComponent({ type: 'crystal', label: '16.0MHz' });
+    clkCrystal.position.set(-2.72, 0.01, 0.15);
+    clkCrystal.rotation.y = Math.PI / 2;
+    scene.add(clkCrystal);
+
+    // ==================== LAYER 2: CPU LGA PACKAGE SUBSTRATE & SMD CAPACITOR RING ====================
+    const substrate = prefabs.circuitBoard({
+      w: 4.45,
+      h: 0.16,
+      d: 3.55,
+      color: 0x1b5e43,
+      rimColor: 0xd4a13e,
+      chamfer: 0.2,
+      mountingHoles: true,
+      goldPadRing: true,
+      pin1: true
+    });
+    substrate.position.set(-0.25, 0.07, 0.12);
     scene.add(substrate);
 
-    // Gold perimeter LGA pins
-    const pinGeo = new THREE.BoxGeometry(0.1, 0.08, 0.08);
-    for (let i = -8; i <= 8; i++) {
-      for (const z of [-1.72, 1.72]) {
-        const p = createToonMesh(pinGeo, 0xd4a446, { outline: false, metalness: 0.45 });
-        p.position.set(-0.25 + i * 0.22, 0.04, 0.12 + z);
-        scene.add(p);
-      }
+    // Perimeter SMD decoupling capacitors around the CPU substrate
+    const smdCoords = [
+      [-1.8, -1.45, 0], [-1.3, -1.45, 0], [0.8, -1.45, 0], [1.3, -1.45, 0],
+      [-2.18, -0.4, Math.PI / 2], [-2.18, 0.5, Math.PI / 2],
+      [1.68, -0.4, Math.PI / 2], [1.68, 0.5, Math.PI / 2]
+    ];
+    for (const [sx, sz, rotY] of smdCoords) {
+      const smd = prefabs.passiveComponent({ type: 'smd-cap' });
+      smd.position.set(sx, 0.18, sz);
+      smd.rotation.y = rotY;
+      scene.add(smd);
     }
 
-    // 2. Five Interactive Silicon Functional Blocks
+    // ==================== LAYER 3: SILICON DIE INTERPOSER & 5 MICROARCHITECTURE UNITS ====================
+    const dieTex = textures.microGrid({
+      bg: '#16161d',
+      majorColor: 'rgba(255,255,255,0.16)',
+      minorColor: 'rgba(255,255,255,0.06)',
+      accentColor: '#d97706',
+      style: 'silicon'
+    });
+    const siliconDie = primitives.chamferBox(3.68, 0.07, 2.86, {
+      chamfer: 0.12,
+      color: 0x18181f,
+      metalness: 0.28,
+      roughness: 0.35,
+      topTexture: dieTex,
+      silhouetteThickness: 0.018
+    });
+    siliconDie.position.set(-0.25, 0.18, 0.12);
+    scene.add(siliconDie);
+
+    // Internal on-die gold micro-bus traces with vias
+    const onDieBuses = [
+      [[-1.35, -0.85], [-0.45, -0.85], [0.85, -0.85]],
+      [[-1.35, -0.45], [-1.35, 0.25], [-0.35, 0.25]],
+      [[0.95, -0.42], [0.95, 0.28], [0.25, 0.28]],
+      [[-0.2, 0.55], [-0.2, 1.25], [-0.85, 1.25]]
+    ];
+    for (const pathPts of onDieBuses) {
+      scene.add(primitives.tracePath(pathPts, { y: 0.225, width: 0.055, height: 0.02, color: 0xeab308 }));
+    }
+
     blockMeshes = {};
-    const makeBlock = (id, w, h, d, color, pos, extras) => {
-      const grp = new THREE.Group();
+    const addUnit = (id, grp, pos, baseHex) => {
       grp.position.set(...pos);
-      const base = createToonMesh(new THREE.BoxGeometry(w, h, d), color, { outlineColor: 0x18181b });
-      grp.add(base);
-      extras?.(grp);
       scene.add(grp);
       registerPickable(grp, id);
-      blockMeshes[id] = { grp, base, baseHex: color };
+      blockMeshes[id] = { grp, baseHex };
       return grp;
     };
 
-    // CU block + decoder ridges + clock quartz oscillator
-    makeBlock('cu', 1.45, 0.42, 1.15, 0xe8692b, [-1.5, 0.37, -0.95], (g) => {
-      for (let i = -2; i <= 2; i++) {
-        const bar = createToonMesh(new THREE.BoxGeometry(1.1, 0.08, 0.1), 0xfbd38d, { outlineColor: 0x18181b });
-        bar.position.set(0, 0.25, i * 0.2);
-        g.add(bar);
-      }
+    // 1. Control Unit (CU) IC Package with microcode decoder bars & 4-side gull-wing pins
+    const cuGrp = prefabs.icPackage({
+      w: 1.42,
+      h: 0.36,
+      d: 1.12,
+      color: 0xe8692b,
+      capColor: 0x1c1917,
+      title: 'CU 控制单元',
+      subtitle: 'DECODER · PC · IR',
+      tag: 'CTRL',
+      accent: '#fbbf24',
+      ridges: 4,
+      pinsPerSide: 5,
+      pinSides: 4
     });
+    addUnit('cu', cuGrp, [-1.48, 0.40, -0.92], 0xe8692b);
 
-    // ALU twin execution wedges / core block
-    makeBlock('alu', 1.4, 0.48, 1.15, 0x0f766e, [1.05, 0.4, -0.9], (g) => {
-      const c1 = createToonMesh(new THREE.BoxGeometry(0.55, 0.14, 0.88), 0x5eead4, { outlineColor: 0x18181b });
-      c1.position.set(-0.34, 0.3, 0);
-      const c2 = createToonMesh(new THREE.BoxGeometry(0.55, 0.14, 0.88), 0x5eead4, { outlineColor: 0x18181b });
-      c2.position.set(0.34, 0.3, 0);
-      g.add(c1, c2);
+    // 2. Arithmetic Logic Unit (ALU) V-Notched Chevron with Dual Input Ports & Z/N/C Flag LEDs
+    const aluGrp = prefabs.aluUnit({
+      w: 1.46,
+      h: 0.42,
+      d: 1.18,
+      color: 0x0f766e,
+      accentColor: 0x5eead4,
+      title: 'ALU 运算核',
+      subtitle: 'ADD · SUB · FLAGS'
     });
+    addUnit('alu', aluGrp, [1.04, 0.42, -0.88], 0x0f766e);
 
-    // Register File bank rows
-    makeBlock('regs', 1.65, 0.34, 0.92, 0x215d3f, [-0.15, 0.33, 0.35], (g) => {
-      for (let i = -1; i <= 1; i++) {
-        const slot = createToonMesh(new THREE.BoxGeometry(0.42, 0.1, 0.66), 0x86efac, { outlineColor: 0x18181b });
-        slot.position.set(i * 0.5, 0.22, 0);
-        g.add(slot);
-      }
+    // 3. Articulated Register File Bank (PC / IR / R0 / R1 / R2 live 3D cartridges)
+    const regsGrp = prefabs.registerBank({
+      w: 1.72,
+      h: 0.32,
+      d: 0.94,
+      color: 0x1b4d36,
+      slots: [
+        { id: 'PC', value: '0x00', sub: 'ADDR' },
+        { id: 'IR', value: '1504', sub: 'INST' },
+        { id: 'R0', value: '0', sub: 'ZERO' },
+        { id: 'R1', value: '3', sub: 'ACC' },
+        { id: 'R2', value: '0', sub: 'GPR' }
+      ]
     });
+    addUnit('regs', regsGrp, [-0.12, 0.37, 0.35], 0x215d3f);
 
-    // On-die L1/L2 Cache SRAM banks
-    makeBlock('cache', 2.05, 0.28, 0.82, 0x6d28d9, [-0.95, 0.3, 1.32], (g) => {
-      for (let i = 0; i < 4; i++) {
-        const bank = createToonMesh(new THREE.BoxGeometry(0.42, 0.08, 0.62), 0xc4b5fd, { outlineColor: 0x18181b });
-        bank.position.set(-0.72 + i * 0.48, 0.18, 0);
-        g.add(bank);
-      }
+    // 4. L1 Cache 6T-SRAM 4-Set Matrix
+    const cacheGrp = prefabs.sramMatrix({
+      w: 2.06,
+      h: 0.28,
+      d: 0.84,
+      color: 0x5b21b6,
+      sets: ['SET 0', 'SET 1', 'SET 2', 'SET 3'],
+      title: 'L1 CACHE · 6T SRAM'
     });
+    addUnit('cache', cacheGrp, [-0.95, 0.35, 1.32], 0x6d28d9);
 
-    // External System Bus Traces + DRAM Memory Stick
-    makeBlock('bus', 1.2, 0.65, 2.75, 0x2563eb, [2.75, 0.32, 0.35], (g) => {
-      const slot = createToonMesh(new THREE.BoxGeometry(0.5, 0.22, 3.0), 0x1e293b, { outlineColor: 0x090d16 });
-      slot.position.set(0, -0.22, 0);
-      g.add(slot);
-      for (let k = -3; k <= 3; k++) {
-        const ic = createToonMesh(new THREE.BoxGeometry(0.18, 0.36, 0.28), 0x0f172a, { outline: false });
-        ic.position.set(-0.56, 0.04, k * 0.36);
-        g.add(ic);
-      }
+    // 5. External System Bus & DIMM DRAM Stick in Latching Motherboard Slot
+    const busGrp = prefabs.dimmStick({
+      w: 1.06,
+      h: 0.72,
+      d: 2.85,
+      boardColor: 0x1d4ed8,
+      chipCount: 4,
+      title: 'DDR DRAM · MAIN MEM'
     });
+    addUnit('bus', busGrp, [2.75, 0.28, 0.30], 0x2563eb);
 
-    // Copper PCB trace buses visually linking CPU socket to DRAM & on-die units
-    for (let z = -0.35; z <= 1.05; z += 0.35) {
-      const trace = createToonMesh(new THREE.BoxGeometry(1.7, 0.03, 0.09), 0xd9a441, { outline: false, metalness: 0.5 });
-      trace.position.set(1.5, 0.02, z);
-      scene.add(trace);
+    // Motherboard routed copper trace buses + 3D arched high-speed bus conduits (CPU <-> DRAM)
+    for (let i = -2; i <= 2; i++) {
+      const z0 = 0.25 + i * 0.32;
+      const z1 = 0.25 + i * 0.42;
+      scene.add(primitives.tracePath([
+        [1.55, z0],
+        [1.92, z0],
+        [2.12, z1],
+        [2.32, z1]
+      ], { y: 0.015, width: 0.075, height: 0.025, color: 0xd9a441 }));
     }
-    const dieBusLines = [
-      [-1.0, 0.22, -0.75, 0.7, 0.04, 0.08],
-      [-0.85, 0.22, -0.25, 0.08, 0.04, 1.0],
-      [0.65, 0.22, -0.25, 0.08, 0.04, 1.0],
-      [-0.5, 0.22, 0.85, 0.9, 0.04, 0.08]
-    ];
-    for (const [bx, by, bz, bw, bh, bd] of dieBusLines) {
-      const b = createToonMesh(new THREE.BoxGeometry(bw, bh, bd), 0xc79238, { outline: false, metalness: 0.45 });
-      b.position.set(bx, by, bz);
-      scene.add(b);
-    }
+    const addrArc = primitives.curvedTube([
+      [0.72, 0.34, 0.55],
+      [1.65, 0.78, 0.65],
+      [2.32, 0.42, 0.65]
+    ], { radius: 0.036, color: 0xf59e0b });
+    const dataArc = primitives.curvedTube([
+      [0.72, 0.34, 0.95],
+      [1.65, 0.86, 1.12],
+      [2.32, 0.42, 1.12]
+    ], { radius: 0.04, color: 0x38bdf8 });
+    scene.add(addrArc, dataArc);
 
-    // Translucent IHS Heat Spreader Cover (can lift cleanly without obscuring die)
-    ihsMesh = createToonMesh(new THREE.BoxGeometry(3.85, 0.12, 3.05), 0xcbd5e1, {
-      outlineColor: 0x334155,
-      metalness: 0.35,
-      roughness: 0.25,
-      opacity: state.ihsOpen ? 0.18 : 0.86
+    // ==================== LAYER 4: STEPPED OCTAGONAL METALLIC IHS HEAT SPREADER ====================
+    ihsMesh = prefabs.steppedCover({
+      w: 3.92,
+      h: 0.18,
+      d: 3.12,
+      color: 0xcbd5e1,
+      title: 'HUAJUAN CORE-16',
+      subtitle: '16-BIT EDUCATIONAL MICROARCHITECTURE',
+      tag: 'IHS',
+      opacity: state.ihsOpen ? 0.16 : 0.94
     });
-    ihsMesh.position.set(-0.25, state.ihsOpen ? 1.55 : 0.72, 0.12);
+    ihsMesh.position.set(-0.25, state.ihsOpen ? 1.62 : 0.74, 0.12);
     scene.add(ihsMesh);
 
     // Bind 3D leader callouts
@@ -7177,18 +8712,39 @@ if (typeof module !== 'undefined' && module.exports) {
     return true;
   }
 
-  function highlightPart3D(partId, wireNames = []) {
+  function highlightPart3D(partId, wireNames = [], snapshot = null) {
     if (!v3) return;
     v3.setActivePart(partId);
     for (const [id, item] of Object.entries(blockMeshes)) {
       const isHot = id === partId;
-      item.base.material.emissive.setHex(isHot ? item.baseHex : 0x000000);
-      item.base.material.emissiveIntensity = isHot ? 0.45 : 0;
-      item.grp.scale.setScalar(isHot ? 1.06 : 1.0);
+      Studio3D.setGroupHighlight(item.grp, isHot, {
+        colorHex: item.baseHex,
+        intensity: 0.38,
+        scale: 1.05
+      });
     }
-    if (ihsMesh) {
-      ihsMesh.position.y = state.ihsOpen ? 1.55 : 0.72;
-      ihsMesh.material.opacity = state.ihsOpen ? 0.18 : 0.86;
+    if (ihsMesh && ihsMesh.userData?.setOpen) {
+      ihsMesh.userData.setOpen(state.ihsOpen, { openY: 1.62, closedY: 0.74, openOpacity: 0.16, closedOpacity: 0.94 });
+    }
+    if (snapshot) {
+      blockMeshes.alu?.grp?.userData?.setFlags?.(snapshot.flags);
+      const hotRegs = partId === 'regs' ? ['R1', 'R2'] : partId === 'cu' ? ['PC', 'IR'] : [];
+      blockMeshes.regs?.grp?.userData?.updateRegisters?.({
+        PC: snapshot.pc,
+        IR: (snapshot.irHex || '').replace(/^0x/, ''),
+        R0: snapshot.regs.R0,
+        R1: snapshot.regs.R1,
+        R2: snapshot.regs.R2
+      }, hotRegs);
+    } else {
+      blockMeshes.alu?.grp?.userData?.setFlags?.({ Z: 0, N: 0, C: 0 });
+      blockMeshes.regs?.grp?.userData?.updateRegisters?.({
+        PC: '0x00',
+        IR: '1504',
+        R0: 0,
+        R1: state.progParams.mem04,
+        R2: 0
+      }, partId === 'regs' ? ['R1'] : []);
     }
     const pulses = wireNames.map(w => ({ points: WIRE_ROUTES[w], color: 0xfbbf24, count: 2, speed: 0.9 })).filter(p => p.points);
     v3.setSignalPulses(pulses);
@@ -7402,7 +8958,7 @@ if (typeof module !== 'undefined' && module.exports) {
         });
       }
       if (!v3) render2DFallbackStage(vp, cur.activePart, cur.stage);
-      else highlightPart3D(cur.activePart, cur.activeWires);
+      else highlightPart3D(cur.activePart, cur.activeWires, cur.snapshot);
       bindPiPClicks(cur.activePart, cur.ctrlSignals);
     } else if (state.cycleStageView === 'seq') {
       app.setPiP({ visible: false });
