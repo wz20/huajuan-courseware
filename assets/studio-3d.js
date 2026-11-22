@@ -1454,6 +1454,273 @@ window.Studio3D = (() => {
         });
       }
       return grp;
+    },
+
+    /**
+     * Universal Physics Permanent Magnet (split Red/Blue Bar Magnet or Generator Pole Shoe)
+     */
+    magnetPole(opts = {}) {
+      const type = opts.type || 'bar';
+      const grp = new THREE.Group();
+
+      if (type === 'bar') {
+        const w = opts.w ?? 0.56;
+        const h = opts.h ?? 1.5;
+        const d = opts.d ?? 0.56;
+        const northDown = opts.northDown !== false;
+        const nHex = 0xdc2626, sHex = 0x2563eb;
+        const bottomHex = northDown ? nHex : sHex;
+        const topHex = northDown ? sHex : nHex;
+        const bottomLabel = northDown ? 'N' : 'S';
+        const topLabel = northDown ? 'S' : 'N';
+
+        const topHalf = primitives.chamferBox(w, h * 0.48, d, {
+          chamfer: 0.05,
+          color: topHex,
+          label: {
+            width: 192,
+            height: 192,
+            bg: topLabel === 'N' ? '#991b1b' : '#1e3a8a',
+            fg: '#ffffff',
+            accent: '#fbbf24',
+            title: topLabel + ' 极',
+            subtitle: 'MAGNET',
+            grid: false
+          }
+        });
+        topHalf.position.y = h * 0.25;
+
+        const botHalf = primitives.chamferBox(w, h * 0.48, d, {
+          chamfer: 0.05,
+          color: bottomHex
+        });
+        botHalf.position.y = -h * 0.25;
+
+        // Chrome divider band in the middle + front N/S badge plates
+        const band = primitives.chamferBox(w * 1.03, h * 0.05, d * 1.03, {
+          chamfer: 0.05,
+          color: 0xe2e8f0,
+          metalness: 0.65,
+          roughness: 0.25,
+          silhouette: false,
+          isAccent: true
+        });
+        grp.add(topHalf, botHalf, band);
+
+        // Front face N and S silkscreen plates so polarity is visible from side view
+        for (const [py, poleTxt, bgCol] of [[h * 0.25, topLabel, topLabel === 'N' ? '#991b1b' : '#1e3a8a'], [-h * 0.25, bottomLabel, bottomLabel === 'N' ? '#991b1b' : '#1e3a8a']]) {
+          const faceTex = textures.labelPlate({
+            width: 160,
+            height: 160,
+            bg: bgCol,
+            fg: '#ffffff',
+            accent: '#facc15',
+            title: poleTxt,
+            grid: false
+          });
+          if (faceTex) {
+            const pMesh = new THREE.Mesh(
+              new THREE.PlaneGeometry(w * 0.68, h * 0.34),
+              new THREE.MeshStandardMaterial({ map: faceTex, roughness: 0.5, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
+            );
+            pMesh.position.set(0, py, d / 2 + 0.024);
+            grp.add(pMesh);
+          }
+        }
+      } else if (type === 'poleShoe') {
+        const isNorth = (opts.polarity || 'N') === 'N';
+        const w = opts.w ?? 0.9, h = opts.h ?? 1.4, d = opts.d ?? 1.6;
+        const color = isNorth ? 0xdc2626 : 0x2563eb;
+        const bg = isNorth ? '#991b1b' : '#1e3a8a';
+        const shoe = primitives.chamferBox(w, h, d, {
+          chamfer: 0.1,
+          color,
+          label: {
+            width: 256,
+            height: 256,
+            bg,
+            fg: '#ffffff',
+            accent: '#fbbf24',
+            title: isNorth ? 'N 极磁靴' : 'S 极磁靴',
+            subtitle: isNorth ? 'NORTH POLE' : 'SOUTH POLE',
+            tag: isNorth ? 'B →' : '→ B',
+            grid: false
+          }
+        });
+        grp.add(shoe);
+      }
+      return grp;
+    },
+
+    /**
+     * 3D Helical Copper Coil Solenoid with Acrylic Bobbin Flanges & Brass Binding Posts
+     */
+    coilSolenoid(opts = {}) {
+      const {
+        radius = 0.78,
+        height = 1.45,
+        turns = 7,
+        wireRadius = 0.048,
+        wireColor = 0xd97706,
+        flangeColor = 0x334155
+      } = opts;
+      const grp = new THREE.Group();
+
+      // Top and bottom bobbin flanges
+      const flangeGeo = new THREE.CylinderGeometry(radius * 1.18, radius * 1.18, 0.09, 28);
+      const holeGeo = new THREE.CylinderGeometry(radius * 0.82, radius * 0.82, 0.11, 24);
+      for (const yPos of [-height / 2, height / 2]) {
+        const fl = createToonMesh(flangeGeo, flangeColor, { silhouetteThickness: 0.018 });
+        fl.position.y = yPos;
+        const hole = new THREE.Mesh(holeGeo, new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 }));
+        hole.position.y = yPos;
+        grp.add(fl, hole);
+      }
+
+      // Translucent inner core cylinder
+      const core = new THREE.Mesh(
+        new THREE.CylinderGeometry(radius * 0.88, radius * 0.88, height, 24, 1, true),
+        new THREE.MeshStandardMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.24, side: THREE.DoubleSide })
+      );
+      grp.add(core);
+
+      // Helical copper winding tube
+      const pts = [];
+      const steps = turns * 20;
+      for (let i = 0; i <= steps; i++) {
+        const u = i / steps;
+        const ang = u * turns * Math.PI * 2;
+        const y = -height * 0.44 + u * (height * 0.88);
+        pts.push([Math.cos(ang) * radius, y, Math.sin(ang) * radius]);
+      }
+      const helix = primitives.curvedTube(pts, {
+        radius: wireRadius,
+        tubularSegments: turns * 16,
+        radialSegments: 8,
+        color: wireColor,
+        caps: false,
+        silhouetteThickness: 0.014
+      });
+      grp.add(helix);
+
+      // Two brass binding posts at front of bottom flange
+      for (const [bx, col] of [[-0.36, 0xdc2626], [0.36, 0x1e293b]]) {
+        const post = createToonMesh(new THREE.CylinderGeometry(0.08, 0.08, 0.18, 12), 0xeab308, { silhouette: false, metalness: 0.65, isAccent: true });
+        post.position.set(bx, -height / 2 + 0.1, radius * 1.12);
+        const cap = createToonMesh(new THREE.CylinderGeometry(0.1, 0.1, 0.08, 12), col, { silhouette: false, isAccent: true });
+        cap.position.set(bx, -height / 2 + 0.2, radius * 1.12);
+        grp.add(post, cap);
+      }
+
+      return grp;
+    },
+
+    /**
+     * 3D Desktop Laboratory Analog Galvanometer / Ammeter with Live Rotating Pointer Needle
+     */
+    analogMeter(opts = {}) {
+      const {
+        w = 1.35,
+        h = 1.15,
+        d = 0.82,
+        color = 0x1e293b,
+        title = '灵敏电流计 G',
+        unit = 'mA',
+        maxAbs = 10
+      } = opts;
+      const grp = new THREE.Group();
+
+      // Base instrument console
+      const base = primitives.chamferBox(w, h * 0.32, d, { chamfer: 0.07, color });
+      base.position.y = h * 0.16;
+      const upper = primitives.chamferBox(w * 0.92, h * 0.72, d * 0.74, { chamfer: 0.07, color });
+      upper.position.set(0, h * 0.62, -d * 0.08);
+      grp.add(base, upper);
+
+      // White dial face plate on front of upper housing
+      const dialTex = textures.labelPlate({
+        width: 320,
+        height: 240,
+        bg: '#fffbeb',
+        fg: '#0f172a',
+        accent: '#dc2626',
+        border: '#1e293b',
+        title,
+        subtitle: `- ${maxAbs} .. 0 .. +${maxAbs} ${unit}`,
+        tag: unit,
+        grid: true
+      });
+      if (dialTex) {
+        const face = new THREE.Mesh(
+          new THREE.PlaneGeometry(w * 0.76, h * 0.52),
+          new THREE.MeshStandardMaterial({ map: dialTex, roughness: 0.45, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
+        );
+        face.position.set(0, h * 0.65, d * 0.29 + 0.024);
+        grp.add(face);
+      }
+
+      // Physical 3D rotating pointer needle pivoted at bottom center of dial
+      const pivot = new THREE.Group();
+      pivot.position.set(0, h * 0.46, d * 0.31 + 0.024);
+      const needle = createToonMesh(new THREE.BoxGeometry(0.035, h * 0.36, 0.02), 0xdc2626, { outline: false, silhouette: false, isAccent: true });
+      needle.position.y = h * 0.16;
+      const hub = createToonMesh(new THREE.CylinderGeometry(0.06, 0.06, 0.04, 12), 0x0f172a, { outline: false, silhouette: false, isAccent: true });
+      hub.rotation.x = Math.PI / 2;
+      pivot.add(needle, hub);
+      grp.add(pivot);
+
+      // Front red & black terminal binding posts
+      for (const [tx, tCol] of [[-w * 0.28, 0xdc2626], [w * 0.28, 0x0f172a]]) {
+        const term = createToonMesh(new THREE.CylinderGeometry(0.07, 0.07, 0.14, 12), tCol, { silhouette: false, isAccent: true });
+        term.position.set(tx, h * 0.35, d * 0.34);
+        grp.add(term);
+      }
+
+      grp.userData.setValue = (val = 0) => {
+        const clamped = Math.max(-maxAbs, Math.min(maxAbs, val));
+        // Positive current deflects needle right (-Z rotation in front view)
+        pivot.rotation.z = -(clamped / Math.max(0.001, maxAbs)) * 0.85;
+      };
+
+      return grp;
+    },
+
+    /**
+     * 3D Physical Vector Arrow (Shaft + Conical Head) for Force, Velocity, Current or Magnetic Field
+     */
+    vectorArrow3D(opts = {}) {
+      const radius = opts.radius ?? 0.045;
+      const len = opts.length ?? 1.0;
+      const color = opts.color ?? 0xdc2626;
+      const grp = new THREE.Group();
+
+      const shaft = createToonMesh(new THREE.CylinderGeometry(radius, radius, len * 0.72, 12), color, {
+        outline: false,
+        silhouetteThickness: 0.012,
+        isAccent: true
+      });
+      shaft.position.y = len * 0.36;
+
+      const head = createToonMesh(new THREE.ConeGeometry(radius * 2.4, len * 0.28, 14), color, {
+        outline: false,
+        silhouetteThickness: 0.012,
+        isAccent: true
+      });
+      head.position.y = len * 0.86;
+      grp.add(shaft, head);
+
+      grp.userData.setDirection = (dirVec, scaleLen = 1) => {
+        if (scaleLen <= 0.02) {
+          grp.visible = false;
+          return;
+        }
+        grp.visible = true;
+        const v = new THREE.Vector3(...dirVec).normalize();
+        grp.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), v);
+        grp.scale.set(1, scaleLen, 1);
+      };
+
+      return grp;
     }
   };
 

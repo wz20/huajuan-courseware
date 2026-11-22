@@ -146,6 +146,10 @@ test('Studio3D 通用双层描边、几何原语与跨学科预制件库结构�
   const gear = Studio3D.prefabs.scientificProp({ type: 'gear' });
   const compass = Studio3D.prefabs.scientificProp({ type: 'compass' });
   const strata = Studio3D.prefabs.scientificProp({ type: 'layeredStrata' });
+  const mag = Studio3D.prefabs.magnetPole({ type: 'bar', northDown: true });
+  const coil = Studio3D.prefabs.coilSolenoid({ turns: 5 });
+  const meter = Studio3D.prefabs.analogMeter({ maxAbs: 20 });
+  const arrow = Studio3D.prefabs.vectorArrow3D({ length: 1 });
 
   assert.equal(board.children.length > 10, true);
   assert.equal(ic.children.length >= 6, true);
@@ -153,6 +157,11 @@ test('Studio3D 通用双层描边、几何原语与跨学科预制件库结构�
   assert.equal(gear.children.length, 2);
   assert.equal(compass.children.length, 2);
   assert.equal(strata.children.length, 3);
+  assert.equal(mag.children.length >= 3, true);
+  assert.equal(coil.children.length >= 6, true);
+  meter.userData.setValue(10);
+  arrow.userData.setDirection([1, 0, 0], 1.2);
+  assert.equal(arrow.visible, true);
 
   // Verify dynamic state hooks on ALU flags, Register cartridges, SRAM sets & Stepped Cover
   alu.userData.setFlags({ Z: 0, N: 1, C: 1 });

@@ -154,33 +154,52 @@ window.StudioSVG = (() => {
     container.replaceChildren(bar);
   }
 
-  function renderMiniPlot(container, { points = [], cursorX = null, dangerFrom = null, xLabel = '', yLabel = '', title = '', color = 'var(--accent)' }) {
+  function renderMiniPlot(containerOrOpts, maybeOpts) {
+    const hasContainer = containerOrOpts && typeof containerOrOpts === 'object' && ('innerHTML' in containerOrOpts || 'tagName' in containerOrOpts);
+    const container = hasContainer ? containerOrOpts : null;
+    const opts = (hasContainer ? maybeOpts : containerOrOpts) || {};
+    const rawPoints = opts.points || (Array.isArray(opts.values) ? opts.values.map((v, i) => [i, v]) : []);
+    const {
+      cursorX = null,
+      dangerFrom = null,
+      xLabel = '',
+      yLabel = '',
+      title = opts.label || '',
+      color = 'var(--accent)'
+    } = opts;
+    const points = rawPoints.length ? rawPoints : [[0, 0], [1, 0]];
     const W = 280, H = 140, padL = 34, padR = 12, padT = 22, padB = 24;
     const cw = W - padL - padR, ch = H - padT - padB;
     const xs = points.map(p => p[0]), ys = points.map(p => p[1]);
-    const minX = Math.min(...xs, 0), maxX = Math.max(...xs, 1);
-    const minY = Math.min(...ys, 0), maxY = Math.max(...ys, 1);
+    const minX = opts.minX ?? Math.min(...xs, 0), maxX = opts.maxX ?? Math.max(...xs, 1);
+    const minY = opts.min ?? Math.min(...ys, 0), maxY = opts.max ?? Math.max(...ys, 1);
     const sx = x => padL + ((x - minX) / (maxX - minX || 1)) * cw;
     const sy = y => padT + ch - ((y - minY) / (maxY - minY || 1)) * ch;
     const d = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${sx(p[0]).toFixed(1)},${sy(p[1]).toFixed(1)}`).join(' ');
     const dangerSvg = dangerFrom !== null
       ? `<rect x="${sx(dangerFrom).toFixed(1)}" y="${padT}" width="${(W - padR - sx(dangerFrom)).toFixed(1)}" height="${ch}" fill="var(--bad)" opacity="0.14"/>`
       : '';
+    const zeroY = minY < 0 && maxY > 0
+      ? `<line x1="${padL}" y1="${sy(0).toFixed(1)}" x2="${W - padR}" y2="${sy(0).toFixed(1)}" stroke="var(--line-strong)" stroke-width="1" stroke-dasharray="3 3"/>`
+      : '';
     let dotSvg = '';
     if (cursorX !== null && points.length) {
       const nearest = points.reduce((best, p) => Math.abs(p[0] - cursorX) < Math.abs(best[0] - cursorX) ? p : best, points[0]);
       dotSvg = `<circle cx="${sx(nearest[0]).toFixed(1)}" cy="${sy(nearest[1]).toFixed(1)}" r="4.5" fill="var(--secondary)" stroke="#fff" stroke-width="1.5"/>`;
     }
-    container.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
+    const svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
       ${dangerSvg}
       <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + ch}" stroke="var(--line-strong)" stroke-width="1.2"/>
       <line x1="${padL}" y1="${padT + ch}" x2="${W - padR}" y2="${padT + ch}" stroke="var(--line-strong)" stroke-width="1.2"/>
+      ${zeroY}
       <path d="${d}" fill="none" stroke="${color}" stroke-width="2.4" stroke-linecap="round"/>
       ${dotSvg}
       <text x="${padL}" y="14" font-size="11" font-weight="700" fill="var(--ink-strong)">${esc(title)}</text>
       <text x="${W - padR}" y="${H - 5}" text-anchor="end" font-size="10" fill="var(--muted)">${esc(xLabel)}</text>
       <text x="4" y="${padT + 8}" font-size="10" fill="var(--muted)">${esc(yLabel)}</text>
     </svg>`;
+    if (container) container.innerHTML = svg;
+    return svg;
   }
 
   return { isoBox, flowPath, renderSequenceDiagram, renderBitfieldBar, renderMiniPlot };

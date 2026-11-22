@@ -7,6 +7,7 @@
 | 学科 / 领域 | 课件 | 学生可以亲手做什么 | 课程源码 |
 | --- | --- | --- | --- |
 | **硬件 · 计算机组成（v2 旗舰）** | [CPU 结构分析与指令执行](https://wz20.github.io/huajuan-courseware/cpu.html) | 3D 掀盖看五大部件，改汇编立即数单步跟踪 16 位位段与信号时序，对比流水线旁路与 L1 缓存抖动。 | [源码](lessons/cpu/) |
+| **高中物理 · 电磁学（v2 旗舰）** | [电磁感应与交变电流实验室](https://wz20.github.io/huajuan-courseware/electromagnetic.html) | 3D 验证楞次定律“来拒去留/中心悬停零电流”、双轨切割 E=BLv 与安培力功率守恒、交流发电机中性面及高压输电。 | [源码](lessons/electromagnetic/) |
 | 地理 | [晨昏线与昼夜长短](https://wz20.github.io/huajuan-courseware/geography.html) | 切到夏至的北纬 70°，让观测点随地球转一天，再切到冬至。 | [源码](lessons/geography/) |
 | 数学 | [抛物面与水平截面](https://wz20.github.io/huajuan-courseware/math.html) | 把母线绕 z 轴转一圈，再拖动水平切面，比较高度与截面半径。 | [源码](lessons/math/) |
 | 物理 | [滑动变阻器](https://wz20.github.io/huajuan-courseware/physics.html) | 换接线柱，再向同一方向移动滑片，比较电流和灯泡亮度。 | [源码](lessons/physics/) |

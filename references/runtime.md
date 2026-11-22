@@ -36,7 +36,7 @@
     - **双层描边与复合组控制**：`createToonMesh(geo, hex, { outline, silhouette, silhouetteThickness, topTexture })`、`setGroupHighlight(group, isHot)`、`setGroupOpacity(group, opacity)`。
     - **程序化丝印与动态读数贴图 (`Studio3D.textures`)**：`labelPlate({ title, subtitle, tag, pin1, gridStyle })`、`microGrid({ style: 'silicon' | 'pcb' | 'ruler' })`、`dynamicReadout({ title, value, sub })`（返回 `{ texture, update(nextState) }`）。
     - **通用几何构造器 (`Studio3D.primitives`)**：`chamferBox`、`extrudePolygon`、`curvedTube`、`tracePath`、`pinRow`。
-    - **跨学科高精度预制件库 (`Studio3D.prefabs`)**：`circuitBoard`、`icPackage`、`aluUnit`（含 `userData.setFlags({ Z, N, C })`）、`registerBank`（含 `userData.updateRegisters(values, activeIds)`）、`sramMatrix`（含 `userData.setActiveSet(idx)`）、`dimmStick`、`steppedCover`（含 `userData.setOpen(isOpen)`）、`passiveComponent`（`'smd-cap' | 'crystal' | 'electrolytic-cap'`）、`scientificProp`（`'gear' | 'compass' | 'layeredStrata'`）。
+    - **跨学科高精度预制件库 (`Studio3D.prefabs`)**：`circuitBoard`、`icPackage`、`aluUnit`（含 `userData.setFlags({ Z, N, C })`）、`registerBank`（含 `userData.updateRegisters(values, activeIds)`）、`sramMatrix`（含 `userData.setActiveSet(idx)`）、`dimmStick`、`steppedCover`（含 `userData.setOpen(isOpen)`）、`passiveComponent`（`'smd-cap' | 'crystal' | 'electrolytic-cap'`）、`magnetPole`（`'bar' | 'poleShoe'`）、`coilSolenoid`、`analogMeter`（含 `userData.setValue(val)`）、`vectorArrow3D`（含 `userData.setDirection(vec, scale)`）、`scientificProp`（`'gear' | 'compass' | 'layeredStrata'`）。
   - `StudioSVG`：`isoBox`、`flowPath`、`renderSequenceDiagram`、`renderBitfieldBar`、`renderMiniPlot`。
 
 ---

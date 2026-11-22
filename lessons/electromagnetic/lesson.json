@@ -1,0 +1,44 @@
+{
+  "layout": "studio",
+  "archetype": "hardware-workbench",
+  "theme": "amber-pcb",
+  "colorScheme": "light",
+  "stageBg": "bg-iso-grid",
+  "three": true,
+  "history": true,
+  "badge": "物理",
+  "title": "电磁感应与交变电流实验室",
+  "subtitle": "楞次定律 · 双轨导体棒切割 · 交流发电机 · 远距离高压输电",
+  "question": "磁通量最大时为什么反而没有感应电流？一根金属棒、一个旋转线框如何把机械能变成点亮城市的交变电流？",
+  "limit": "高中物理理想化电磁模型（匀强磁场、忽略边缘漏磁与辐射损耗、理想变压器无铁损铜损），用于定性判向（楞次定律/右手定则）与定量验证（E=nΔΦ/Δt、E=BLv、e=NBSωsinωt、ΔP=I²R线）。",
+  "modules": [
+    {
+      "id": "lenz",
+      "icon": "01",
+      "title": "楞次定律与磁通量变化",
+      "shortDesc": "来拒去留 · 增反减同 · 中心悬停零电流",
+      "question": "为什么条形磁铁停在线圈正中心、磁通量 Φ 达到最大时，灵敏电流计指针反而归零？"
+    },
+    {
+      "id": "rails",
+      "icon": "02",
+      "title": "双轨导体棒切割磁感线",
+      "shortDesc": "E=BLv · 路端电压 U · 安培力制动功率守恒",
+      "question": "导体棒在磁场导轨上匀速滑行时，速度、电流与安培力方向怎样判定？外力机械功率去了哪里？"
+    },
+    {
+      "id": "generator",
+      "icon": "03",
+      "title": "交流发电机与正弦交变电流",
+      "shortDesc": "中性面 vs 峰值面 · Φ(t) 与 e(t) 90° 相位差",
+      "question": "线圈转到中性面和平行磁感线面时，谁的磁通量最大？谁的电动势最大？电流在哪一瞬间换向？"
+    },
+    {
+      "id": "transformer",
+      "icon": "04",
+      "title": "理想变压器与远距离高压输电",
+      "shortDesc": "U1/U2=n1/n2 · 升压 k 倍线损降为 1/k² · 直流零输出",
+      "question": "输送同样 100 kW 电功率，为什么把电压升高 10 倍，输电线上的发热损耗会骤降到原来的 1/100？"
+    }
+  ]
+}

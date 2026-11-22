@@ -64,7 +64,7 @@ python3 scripts/scaffold_lesson.py lessons/<slug> --title "课题中文名" --ar
    - **插画级双层描边 + 跨学科 3D 预制件库（禁止裸 `BoxGeometry` 积木堆砌）**：
      - `Studio3D.createToonMesh` 默认自带 **Inverted-Hull 粗外轮廓剪影 (`silhouette: true`) + 内部折角细墨线 (`outline: true`) + 顶面丝印贴图支持 (`topTexture`)**；
      - 凡构建 3D 场景，**严禁只用几个光秃秃的纯色 `THREE.BoxGeometry` 拼积木**。必须优先组合调用内置通用工具：
-       - **跨学科预制件 `Studio3D.prefabs`**：`circuitBoard`（倒角安装孔金手指电路板）、`icPackage`（鸥翼引脚丝印芯片）、`aluUnit`（V 型漏斗运算器 + Z/N/C 物理指示灯）、`registerBank`（带 3D 实时读数与读写弹起动画的寄存器/插槽组）、`sramMatrix`（晶圆网格阵列）、`dimmStick`（带卡扣插座的扩展卡/内存条）、`steppedCover`（可掀开爆炸视图的阶梯金属散热顶盖）、`passiveComponent`（贴片电容/电解电容/石英晶振）、`scientificProp`（机械齿轮 `gear`、磁罗盘 `compass`、地质地层 `layeredStrata`）；
+       - **跨学科预制件 `Studio3D.prefabs`**：`circuitBoard`（倒角安装孔金手指电路板）、`icPackage`（鸥翼引脚丝印芯片）、`aluUnit`（V 型漏斗运算器 + Z/N/C 物理指示灯）、`registerBank`（带 3D 实时读数与读写弹起动画的寄存器/插槽组）、`sramMatrix`（晶圆网格阵列）、`dimmStick`（带卡扣插座的扩展卡/内存条）、`steppedCover`（可掀开爆炸视图的阶梯金属散热顶盖）、`passiveComponent`（贴片电容/电解电容/石英晶振）、`magnetPole`（红蓝条形磁铁/发电机极靴）、`coilSolenoid`（3D 螺旋紫铜线圈与接线柱）、`analogMeter`（指针实时偏转的 3D 灵敏电流计/电压表）、`vectorArrow3D`（三维速度/力/磁场矢量箭头）、`scientificProp`（机械齿轮 `gear`、磁罗盘 `compass`、地质地层 `layeredStrata`）；
        - **通用几何构造器 `Studio3D.primitives`**：`chamferBox`（八角倒角块）、`extrudePolygon`（任意 2D 多边形立体挤出）、`curvedTube`（三维弯曲导管/杜邦跳线）、`tracePath`（带金属过孔的立体铜箔走线）、`pinRow`（金属引脚排）；
        - **程序化高清贴图 `Studio3D.textures`**：`labelPlate`（顶面丝印铭牌）、`microGrid`（晶圆/PCB/标尺网格）、`dynamicReadout`（可在单步仿真中实时刷新的 3D 表面读数屏）。
      - 用 `Studio3D.setGroupHighlight(group, isHot)` 统一高亮复合组件，用 `anchorCallouts(...)` 绑定虚线引线标签，用 `setSignalPulses(...)` 演出沿三维路径流动的信号脉冲；
