@@ -1,0 +1,44 @@
+{
+  "layout": "studio",
+  "archetype": "hardware-workbench",
+  "theme": "warm-drafting",
+  "colorScheme": "light",
+  "stageBg": "bg-iso-grid",
+  "three": true,
+  "history": true,
+  "badge": "CPU",
+  "title": "CPU 结构分析与指令执行实验室",
+  "subtitle": "3D 芯片剖面 · 微周期时序 · 流水线冒险 · L1 缓存验证",
+  "question": "一块硅片内部究竟有哪些功能单元？一条指令怎样一步步走完取指、译码、计算与写回？",
+  "limit": "教学简化微架构模型（4 通用寄存器、16 位教学指令集、4 路直接映射 L1 缓存假设命中 4 cycles / DRAM 缺失 100 cycles），用于定性定量建立硬件直觉。",
+  "modules": [
+    {
+      "id": "overview",
+      "icon": "01",
+      "title": "五大部件 3D 剖面",
+      "shortDesc": "控制单元 · ALU · 寄存器 · 缓存 · 三总线",
+      "question": "掀开金属顶盖，CPU 内部五大核心区各管什么、彼此靠哪三条总线对话？"
+    },
+    {
+      "id": "cycle",
+      "icon": "02",
+      "title": "指令周期与位段追踪",
+      "shortDesc": "Fetch → Decode → Execute → Writeback",
+      "question": "改写指令里的立即数或操作符，观察信号流、16 位机器码位段、寄存器与标志位怎样逐拍变化。"
+    },
+    {
+      "id": "pipeline",
+      "icon": "03",
+      "title": "五级流水线与冒险",
+      "shortDesc": "单周期 vs 流水线 vs 数据旁路 (Forwarding)",
+      "question": "为什么前后指令共用 R1 时流水线会卡住气泡？硬件数据旁路怎样消掉额外等待？"
+    },
+    {
+      "id": "cache",
+      "icon": "04",
+      "title": "L1 缓存命中与抖动",
+      "shortDesc": "Tag / Index 映射 · 顺序访问 vs 跨步冲突",
+      "question": "为什么换一组内存地址间隔，明明总容量够却会变成 0% 缓存命中、延迟暴涨 25 倍？"
+    }
+  ]
+}
